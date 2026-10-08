@@ -146,7 +146,7 @@ export TAILCOMPILE_VALIDATION_DESIGNS="spmv"
 bash experiments/vtr/tailcompile_v3_training/train_platform.sh "$TAILCOMPILE_REPO"
 ```
 
-该增量计划为 attention_layer 使用 100/110/115/120，给 SHA 边界增加 seed 13/14，并使用
+该增量计划为 attention_layer 使用 100/110/114/120，给 SHA 边界增加 seed 13/14，并使用
 80/90/100/110 的 spmv 作为首个完整留出设计。三个设计只够验证拆分机制；正式泛化结论仍需
 更多独立设计族。
 
