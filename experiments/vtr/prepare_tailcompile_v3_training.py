@@ -62,7 +62,8 @@ def candidate_index(root: Path) -> dict[str, dict]:
 
 def copy_source(source: Path, destination: Path, bundle_root: Path) -> dict:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
+    if source.resolve() != destination.resolve():
+        shutil.copy2(source, destination)
     return {'path': destination.relative_to(bundle_root).as_posix(),
             'sha256': digest(destination)}
 
@@ -71,12 +72,25 @@ def build_design(design: str, output: Path) -> dict:
     v2_root = HERE / 'tailcompile_v2' / design / '4x4'
     v3_root = HERE / 'tailcompile_v3' / design / '4x4'
     logic_path, device_path = v2_root / 'logic_ir.json', v2_root / 'device_ir.json'
-    logic = json.loads(logic_path.read_text())
-    blif_path = Path(logic['mapped_blif'])
-    if not blif_path.is_absolute():
-        blif_path = HERE.parent.parent / blif_path
-    candidates = candidate_index(v3_root)
     design_out = output / 'designs' / design
+    if logic_path.is_file() and device_path.is_file():
+        logic = json.loads(logic_path.read_text())
+        blif_path = Path(logic['mapped_blif'])
+        if not blif_path.is_absolute():
+            blif_path = HERE.parent.parent / blif_path
+    else:
+        # A cloned portable bundle already contains the immutable graph inputs,
+        # even when the larger v2 construction directory was intentionally not
+        # committed.  Reuse those sources while rebuilding trial labels.
+        logic_path = design_out / 'logic_ir.json'
+        device_path = design_out / 'device_ir.json'
+        blif_path = design_out / 'mapped.blif'
+        for source in (logic_path, device_path, blif_path):
+            if not source.is_file():
+                raise FileNotFoundError(
+                    f'missing v2 source and portable bundle fallback: {source}')
+        logic = json.loads(logic_path.read_text())
+    candidates = candidate_index(v3_root)
     sources = {
         'logic_ir': copy_source(logic_path, design_out / 'logic_ir.json', output),
         'device_ir': copy_source(device_path, design_out / 'device_ir.json', output),
@@ -137,12 +151,23 @@ def main() -> None:
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     payload = {
-        'schema': 'tailcompile-v3-structured-ranking-dataset-v1',
+        'schema': 'tailcompile-v3-structured-ranking-dataset-v2',
         'metric_direction': {
             'route_failure': 'lower', 'channel_p99': 'lower', 'region_p99': 'lower',
             'wirelength': 'lower', 'final_cpd_ns': 'lower',
         },
-        'pairing_rule': 'same design, placement_seed, and channel_width only',
+        'pairing_rule': ('same design and channel_width; aggregate placement seeds before '
+                         'constructing candidate pairs'),
+        'placement_seed_policy': {
+            'input_feature': False,
+            'role': 'nuisance repetition',
+            'route_failure': 'failure rate across seeds',
+            'successful_metrics': 'median across successful seeds',
+        },
+        'channel_width_policy': {
+            'input_feature': True,
+            'normalization': 'log1p(width)/log1p(300)',
+        },
         'designs': [build_design(design, args.out) for design in args.designs],
     }
     target = args.out / 'dataset.json'

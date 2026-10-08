@@ -14,6 +14,7 @@ import json
 import math
 import os
 import random
+import statistics
 import time
 from pathlib import Path
 
@@ -39,44 +40,72 @@ def source_path(bundle: Path, record: dict) -> Path:
     return path if path.is_absolute() else bundle / path
 
 
-def normalized_costs(rows: list[tuple[dict, dict]], weights: dict) -> dict[str, float]:
-    costs = {action['id']: 0.0 for action, _ in rows}
-    for action, trial in rows:
-        if trial['status'] != 'success':
-            costs[action['id']] += weights['route_failure']
-    successful = [(action, trial) for action, trial in rows if trial['status'] == 'success']
+def normalized_costs(rows: list[tuple[dict, list[dict]]],
+                     weights: dict) -> tuple[dict[str, float], dict[str, dict]]:
+    """Aggregate nuisance placement seeds before constructing ranking labels."""
+    costs = {}
+    summaries = {}
+    aggregated_metrics = {}
+    for action, trials in rows:
+        if not trials:
+            continue
+        successful = [trial for trial in trials if trial['status'] == 'success']
+        failure_rate = 1.0 - len(successful) / len(trials)
+        costs[action['id']] = weights['route_failure'] * failure_rate
+        metrics = {}
+        for metric in ('region_p99', 'channel_p99', 'wirelength', 'final_cpd_ns'):
+            values = [float(trial['metrics'][metric]) for trial in successful
+                      if trial.get('metrics') and trial['metrics'].get(metric) is not None]
+            metrics[metric] = statistics.median(values) if values else None
+        aggregated_metrics[action['id']] = metrics
+        summaries[action['id']] = {
+            'placement_seed_count': len(trials),
+            'route_success_rate': len(successful) / len(trials),
+            'aggregated_metrics': metrics,
+        }
     for metric in ('region_p99', 'channel_p99', 'wirelength', 'final_cpd_ns'):
-        values = [float(trial['metrics'][metric]) for _, trial in successful
-                  if trial['metrics'].get(metric) is not None]
+        values = [metrics[metric] for metrics in aggregated_metrics.values()
+                  if metrics[metric] is not None]
         if len(values) < 2:
             continue
         low, high = min(values), max(values)
         scale = max(high - low, 1e-12)
-        for action, trial in successful:
-            value = trial['metrics'].get(metric)
+        for action, _ in rows:
+            value = aggregated_metrics[action['id']][metric]
             if value is not None:
-                costs[action['id']] += weights[metric] * (float(value) - low) / scale
-    return costs
+                costs[action['id']] += weights[metric] * (value - low) / scale
+    return costs, summaries
 
 
 def make_pairs(design: dict, weights: dict, margin: float) -> list[dict]:
+    # Seed is a nuisance variable with no numeric semantics.  Trials are paired
+    # by physical channel width and aggregated across placement seeds first.
     conditions = {}
     for action in design['actions']:
         for trial in action['trials']:
-            key = (trial['placement_seed'], trial['channel_width'])
-            conditions.setdefault(key, []).append((action, trial))
+            width = int(trial['channel_width'])
+            condition = conditions.setdefault(width, {})
+            record = condition.setdefault(action['id'], {'action': action, 'trials': []})
+            record['trials'].append(trial)
     pairs = []
-    for condition, rows in conditions.items():
+    for channel_width, actions in sorted(conditions.items()):
+        rows = [(record['action'], record['trials']) for record in actions.values()]
         if len(rows) < 2:
             continue
-        costs = normalized_costs(rows, weights)
+        costs, summaries = normalized_costs(rows, weights)
         for (left, _), (right, _) in itertools.combinations(rows, 2):
             gap = costs[left['id']] - costs[right['id']]
             if abs(gap) <= margin:
                 continue
             preferred, other = (left, right) if gap < 0 else (right, left)
-            pairs.append({'design': design['design'], 'condition': condition,
-                          'preferred': preferred, 'other': other, 'cost_gap': abs(gap)})
+            pairs.append({
+                'design': design['design'], 'channel_width': channel_width,
+                'condition': {'channel_width': channel_width,
+                              'seed_aggregation': 'median_metrics_and_failure_rate'},
+                'preferred': preferred, 'other': other, 'cost_gap': abs(gap),
+                'preferred_summary': summaries[preferred['id']],
+                'other_summary': summaries[other['id']],
+            })
     return pairs
 
 
@@ -105,24 +134,37 @@ def score_unique_actions(scores: torch.Tensor, coordinates: torch.Tensor,
 def evaluate(model, pairs: list[dict], graphs: dict, coordinate_weight: float) -> dict:
     model.eval()
     correct, losses = 0, []
+    by_design_result = {}
     with torch.no_grad():
-        by_design = {}
+        by_condition = {}
         for pair in pairs:
-            by_design.setdefault(pair['design'], []).append(pair)
-        for design, design_pairs in by_design.items():
-            # Graph embeddings only depend on the design, not the candidate pair.
-            # Reusing this forward pass avoids thousands of redundant full-graph
-            # GNN evaluations per epoch.
-            scores, coordinates = model(graphs[design])
-            action_scores = score_unique_actions(scores, coordinates, design_pairs,
+            key = (pair['design'], int(pair['channel_width']))
+            by_condition.setdefault(key, []).append(pair)
+        design_correct, design_losses = {}, {}
+        for condition, condition_pairs in by_condition.items():
+            scores, coordinates = model(graphs[condition])
+            action_scores = score_unique_actions(scores, coordinates, condition_pairs,
                                                   coordinate_weight)
-            for pair in design_pairs:
+            for pair in condition_pairs:
                 preferred = action_scores[pair['preferred']['id']]
                 other = action_scores[pair['other']['id']]
-                correct += int(preferred > other)
-                losses.append(float(F.softplus(-(preferred - other))))
-    return {'pair_count': len(pairs), 'accuracy': correct / max(len(pairs), 1),
-            'mean_pair_loss': sum(losses) / max(len(losses), 1)}
+                is_correct = int(preferred > other)
+                loss = float(F.softplus(-(preferred - other)))
+                correct += is_correct
+                losses.append(loss)
+                design_correct[pair['design']] = design_correct.get(pair['design'], 0) + is_correct
+                design_losses.setdefault(pair['design'], []).append(loss)
+        for design, values in sorted(design_losses.items()):
+            by_design_result[design] = {
+                'pair_count': len(values),
+                'accuracy': design_correct[design] / len(values),
+                'mean_pair_loss': sum(values) / len(values),
+            }
+    return {
+        'pair_count': len(pairs), 'accuracy': correct / max(len(pairs), 1),
+        'mean_pair_loss': sum(losses) / max(len(losses), 1),
+        'by_design': by_design_result,
+    }
 
 
 def main() -> None:
@@ -174,12 +216,14 @@ def main() -> None:
         blif_path = source_path(bundle, sources['mapped_blif'])
         logic = json.loads(logic_path.read_text())
         device_ir = json.loads(device_path.read_text())
-        graph = graph_inputs(logic, device_ir, blif_path)
-        graphs[design['design']] = {
-            key: value.to(torch_device) if isinstance(value, torch.Tensor) else value
-            for key, value in graph.items()
-        }
-        all_pairs.extend(make_pairs(design, weights, args.pair_margin))
+        design_pairs = make_pairs(design, weights, args.pair_margin)
+        all_pairs.extend(design_pairs)
+        for channel_width in sorted({int(row['channel_width']) for row in design_pairs}):
+            graph = graph_inputs(logic, device_ir, blif_path, channel_width)
+            graphs[(design['design'], channel_width)] = {
+                key: value.to(torch_device) if isinstance(value, torch.Tensor) else value
+                for key, value in graph.items()
+            }
     if not all_pairs:
         raise SystemExit('no controlled candidate pairs; collect >=2 actions under one condition')
     validation_names = set(args.validation_designs)
@@ -198,27 +242,30 @@ def main() -> None:
                                   weight_decay=args.weight_decay)
     args.out.mkdir(parents=True, exist_ok=True)
     print(json.dumps({
-        'stage': 'training_start', 'design_count': len(graphs),
+        'stage': 'training_start',
+        'design_count': len({key[0] for key in graphs}),
+        'condition_graph_count': len(graphs),
         'train_pair_count': len(train_pairs),
         'validation_pair_count': len(validation_pairs), 'epochs': args.epochs,
     }), flush=True)
     history = []
-    train_by_design = {}
+    train_by_condition = {}
     for pair in train_pairs:
-        train_by_design.setdefault(pair['design'], []).append(pair)
+        key = (pair['design'], int(pair['channel_width']))
+        train_by_condition.setdefault(key, []).append(pair)
     for epoch in range(1, args.epochs + 1):
         model.train()
-        design_order = list(train_by_design)
-        random.shuffle(design_order)
+        condition_order = list(train_by_condition)
+        random.shuffle(condition_order)
         epoch_loss = 0.0
         epoch_pairs = 0
-        for design in design_order:
-            design_pairs = train_by_design[design]
-            scores, coordinates = model(graphs[design])
-            action_scores = score_unique_actions(scores, coordinates, design_pairs,
+        for condition in condition_order:
+            condition_pairs = train_by_condition[condition]
+            scores, coordinates = model(graphs[condition])
+            action_scores = score_unique_actions(scores, coordinates, condition_pairs,
                                                   args.coordinate_weight)
             pair_losses = []
-            for pair in design_pairs:
+            for pair in condition_pairs:
                 preferred = action_scores[pair['preferred']['id']]
                 other = action_scores[pair['other']['id']]
                 pair_losses.append(F.softplus(-(preferred - other) / args.temperature))
@@ -227,8 +274,8 @@ def main() -> None:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
             optimizer.step()
-            epoch_loss += float(loss.detach()) * len(design_pairs)
-            epoch_pairs += len(design_pairs)
+            epoch_loss += float(loss.detach()) * len(condition_pairs)
+            epoch_pairs += len(condition_pairs)
         if epoch in {1, args.epochs} or epoch % args.log_every == 0:
             row = {'epoch': epoch,
                    'train_loss': epoch_loss / max(epoch_pairs, 1),
@@ -242,11 +289,14 @@ def main() -> None:
                 'device': str(torch_device), 'latest': row, 'history': history,
             }, indent=2) + '\n')
         if epoch % args.checkpoint_every == 0 and epoch != args.epochs:
-            torch.save({'schema': 'tailcompile-v3-intermediate-checkpoint-v1',
+            torch.save({'schema': 'tailcompile-v3-intermediate-checkpoint-v2',
                         'epoch': epoch, 'model_state': model.state_dict(),
-                        'hidden_width': args.hidden}, args.out / 'ranker_latest.pt')
+                        'hidden_width': args.hidden,
+                        'conditioned_on_channel_width': True,
+                        'seed_aggregation': 'median_metrics_and_failure_rate'},
+                       args.out / 'ranker_latest.pt')
     checkpoint = {
-        'schema': 'tailcompile-v3-structured-ranker-v1',
+        'schema': 'tailcompile-v3-structured-ranker-v2',
         'model_state': model.state_dict(),
         'hidden_width': args.hidden,
         'cluster_feature_width': sample_graph['cluster_x'].shape[1],
@@ -257,17 +307,33 @@ def main() -> None:
         'validation_designs': sorted({row['design'] for row in validation_pairs}),
         'smoke_train_all': args.smoke_train_all,
         'device': str(torch_device),
+        'conditioned_on_channel_width': True,
+        'channel_width_normalization': 'log1p(width)/log1p(300)',
+        'seed_aggregation': 'median_success_metrics_and_route_failure_rate',
     }
     checkpoint_path = args.out / 'ranker.pt'
     torch.save(checkpoint, checkpoint_path)
     report = {
-        'schema': 'tailcompile-v3-training-report-v1',
+        'schema': 'tailcompile-v3-training-report-v2',
         'dataset': str(args.dataset), 'checkpoint': str(checkpoint_path),
         'epochs': args.epochs, 'train_pair_count': len(train_pairs),
         'validation_pair_count': len(validation_pairs),
         'final_train': evaluate(model, train_pairs, graphs, args.coordinate_weight),
         'final_validation': evaluate(model, validation_pairs, graphs, args.coordinate_weight),
         'history': history,
+        'pair_count_by_design': {
+            design: sum(row['design'] == design for row in all_pairs)
+            for design in sorted({row['design'] for row in all_pairs})
+        },
+        'pair_count_by_channel_width': {
+            f'{design}:w{width}': sum(
+                row['design'] == design and int(row['channel_width']) == width
+                for row in all_pairs)
+            for design, width in sorted({
+                (row['design'], int(row['channel_width'])) for row in all_pairs})
+        },
+        'conditioned_on_channel_width': True,
+        'seed_aggregation': 'median_success_metrics_and_route_failure_rate',
         'device': str(torch_device), 'elapsed_seconds': round(time.time() - started, 3),
         'warning': ('smoke result is not an unbiased generalization estimate'
                     if args.smoke_train_all else None),

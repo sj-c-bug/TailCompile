@@ -50,7 +50,16 @@ def zscore_columns(tensor: torch.Tensor) -> torch.Tensor:
     return (tensor - mean) / std
 
 
-def graph_inputs(logic: dict, device: dict, blif: Path):
+def normalized_channel_width(channel_width: int) -> float:
+    if channel_width <= 0:
+        raise ValueError('channel_width must be positive')
+    return math.log1p(channel_width) / math.log1p(300.0)
+
+
+def graph_inputs(logic: dict, device: dict, blif: Path,
+                 channel_width: int | None = None):
+    if channel_width is not None and channel_width <= 0:
+        raise ValueError('channel_width must be positive')
     primitives, _ = parse_blif(blif)
     atom_to_cluster = {}
     for cluster in logic['clusters']:
@@ -111,12 +120,21 @@ def graph_inputs(logic: dict, device: dict, blif: Path):
     for edge in region_edges:
         a, b, weight = int(edge['region_a']), int(edge['region_b']), float(edge['count'])
         region_directed.extend(((a, b, weight), (b, a, weight)))
+    region_x = zscore_columns(torch.tensor(region_features, dtype=torch.float32))
+    if channel_width is not None:
+        # Width is a physical routing-capacity condition, not a random run ID.
+        # A fixed reference keeps the feature meaningful across designs.  It is
+        # appended after per-design z-scoring so the constant is not erased.
+        width_feature = normalized_channel_width(channel_width)
+        width_column = torch.full((region_x.shape[0], 1), width_feature,
+                                  dtype=region_x.dtype)
+        region_x = torch.cat((region_x, width_column), dim=1)
     return {
         'cluster_x': zscore_columns(torch.tensor(cluster_features, dtype=torch.float32)),
         'logic_src': torch.tensor(logic_src, dtype=torch.long),
         'logic_dst': torch.tensor(logic_dst, dtype=torch.long),
         'logic_weight': torch.tensor(logic_weight, dtype=torch.float32),
-        'region_x': zscore_columns(torch.tensor(region_features, dtype=torch.float32)),
+        'region_x': region_x,
         'region_src': torch.tensor([row[0] for row in region_directed], dtype=torch.long),
         'region_dst': torch.tensor([row[1] for row in region_directed], dtype=torch.long),
         'region_weight': torch.tensor([row[2] for row in region_directed], dtype=torch.float32),
@@ -298,6 +316,8 @@ def main() -> None:
     parser.add_argument('--seed', type=int, default=2027)
     parser.add_argument('--hidden', type=int, default=32)
     parser.add_argument('--partition-prior-weight', type=float, default=0.35)
+    parser.add_argument('--channel-width', type=int,
+                        help='Target route channel width for a width-conditioned checkpoint')
     parser.add_argument('--checkpoint', type=Path,
                         help='Trained structured-ranker checkpoint; omit for random candidates')
     parser.add_argument('--score-noise-std', type=float, default=0.0,
@@ -307,6 +327,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.candidates < 1:
         parser.error('--candidates must be positive')
+    if args.channel_width is not None and args.channel_width <= 0:
+        parser.error('--channel-width must be positive')
     if args.score_noise_std < 0 or args.coordinate_noise_std < 0:
         parser.error('candidate noise standard deviations must be nonnegative')
     if args.checkpoint is not None and not args.checkpoint.is_file():
@@ -321,7 +343,19 @@ def main() -> None:
     if not blif.is_file():
         parser.error(f'missing BLIF: {blif}')
     args.out.mkdir(parents=True, exist_ok=True)
-    data = graph_inputs(logic, device, blif)
+    checkpoint = None
+    checkpoint_state = None
+    if args.checkpoint is not None:
+        checkpoint = torch.load(args.checkpoint, map_location='cpu', weights_only=True)
+        conditioned = bool(checkpoint.get('conditioned_on_channel_width', False))
+        if conditioned and args.channel_width is None:
+            parser.error('this checkpoint requires --channel-width')
+        checkpoint_state = checkpoint.get('model_state', checkpoint)
+    data = graph_inputs(logic, device, blif, args.channel_width)
+    if checkpoint is not None:
+        expected = checkpoint.get('region_feature_width')
+        if expected is not None and int(expected) != int(data['region_x'].shape[1]):
+            parser.error('checkpoint/device feature-width mismatch; check --channel-width')
     manifest = {
         'schema': 'tailcompile-v3-build', 'design': logic['design'], 'region_grid': '4x4',
         'status': ('trained_checkpoint_candidate_sampling' if args.checkpoint
@@ -333,6 +367,7 @@ def main() -> None:
         'checkpoint_sha256': digest(args.checkpoint) if args.checkpoint else None,
         'score_noise_std': args.score_noise_std,
         'coordinate_noise_std': args.coordinate_noise_std,
+        'channel_width': args.channel_width,
         'contracted_hyperedge_count': data['contracted_edge_count'],
         'message_edge_count': data['message_edge_count'], 'candidates': [],
     }
@@ -341,10 +376,8 @@ def main() -> None:
         random.seed(seed)
         torch.manual_seed(seed)
         model = TwoTowerPlacementGNN(data['cluster_x'].shape[1], data['region_x'].shape[1], args.hidden)
-        if args.checkpoint is not None:
-            checkpoint = torch.load(args.checkpoint, map_location='cpu', weights_only=True)
-            state = checkpoint.get('model_state', checkpoint)
-            model.load_state_dict(state)
+        if checkpoint_state is not None:
+            model.load_state_dict(checkpoint_state)
         model.eval()
         with torch.no_grad():
             scores, relative_xy = model(data)

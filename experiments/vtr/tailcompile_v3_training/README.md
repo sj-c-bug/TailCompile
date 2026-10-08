@@ -1,25 +1,28 @@
 # TailCompile v3：结构化排序训练包
 
-更新日期：2026-10-03
+更新日期：2026-10-09
 
 ## 当前状态
 
-训练闭环已经可以执行，但目前只完成“工程可运行性”验证，尚未获得跨设计泛化结论。
+训练闭环和 checkpoint 推理烟雾测试已经通过，但目前只完成“工程可运行性”验证，尚未获得
+跨设计泛化结论。v2 训练定义不把 placement seed 当作输入，而是在同一 design/width/action
+内聚合 seed；channel width 作为具有物理意义的容量条件进入区域图。
 
 - 已生成 SHA 24 个候选和 attention_layer 24 个候选；
 - 48 个 `.fplace` 哈希均不同；SHA 有 23 个不同区域分配，attention_layer 有 24 个；
 - 标注计划包含 384 次 VPR：每候选 2 个 placement seeds、4 个 channel widths；
-- 现有正式数据只有 3 个 actions、3 个 trials，能形成 1 个严格受控 pair；
-- 20 epoch 本地烟雾训练把 pair loss 从约 0.692 降至 0.621；
-- checkpoint 已在 SHA 上完成推理，生成两个不同、容量合法的 `.fplace`。
+- 384 个标签运行完整，旧训练定义完成 200 epochs，但由于 seed 标签冲突只作为 bootstrap；
+- checkpoint 已在 SHA 上完成推理，生成 3 个不同区域分配、容量合法的 `.fplace`；
+- `campaign_seed_aggregated_v2.json` 增加 attention_layer 边界宽度、更多 seeds 和 spmv 留出族。
 
 上述 100% smoke pair accuracy 不是测试集结果，不能报告为模型性能。
 
 ## 为什么采用结构化排序
 
 VPR 和整数 min-cost flow 不可微，因此不能从 VPR 的拥塞值直接穿过合法化器反向传播。
-当前训练目标是：在相同 design、placement seed 和 channel width 下，如果 VPR 证明候选 A 优于
-候选 B，则 GNN 对 A 的完整 cluster→region assignment 与区域内坐标给出更高结构分数。
+当前训练目标是：在相同 design 和 channel width 下，先跨 placement seeds 聚合候选结果；如果
+候选 A 的失败率、拥塞、线长和 CPD 聚合成本优于 B，则 GNN 对 A 的完整
+cluster→region assignment 与区域内坐标给出更高结构分数。seed 只是随机重复，原始数值不进入模型。
 
 优化目标默认由以下归一化成本组成：
 
@@ -35,6 +38,8 @@ VPR 和整数 min-cost flow 不可微，因此不能从 VPR 的拥塞值直接�
 ## 文件入口
 
 - `campaign_bootstrap.json`：48 个候选和 VPR 扫描配置；
+- `campaign_seed_aggregated_v2.json`：修正后的增量标注配置；
+- `prepare_seed_aggregated_v2.sh`：构建 spmv 4×4 IR、候选池和增量标签脚本；
 - `run_labels.sh`：已展开的 384 条 WSL/VTR 命令，可断点式重跑；
 - `bundle/dataset.json`：自包含、相对路径的数据集索引；
 - `smoke_model/ranker.pt`：仅用于验证接口的 checkpoint；
@@ -45,10 +50,10 @@ VPR 和整数 min-cost flow 不可微，因此不能从 VPR 的拥塞值直接�
 `train_platform.sh` 会实时输出环境、数据准备、训练启动、每 10 个 epoch
 和最终验收信息。训练目录还会生成：
 
-- `model_bootstrap/progress.json`：最近一次已完成 epoch 和历史曲线；
-- `model_bootstrap/ranker_latest.pt`：每 20 个 epoch 保存的中间 checkpoint；
-- `model_bootstrap/ranker.pt`：200 个 epoch 全部完成后的最终 checkpoint；
-- `model_bootstrap/training_report.json`：最终训练报告。
+- `model_width_conditioned/progress.json`：最近一次已完成 epoch 和逐设计曲线；
+- `model_width_conditioned/ranker_latest.pt`：每 20 个 epoch 保存的中间 checkpoint；
+- `model_width_conditioned/ranker.pt`：200 个 epoch 全部完成后的最终 checkpoint；
+- `model_width_conditioned/training_report.json`：逐设计、逐 width 的最终训练报告。
 
 训练器默认使用 `--device auto`：CUDA 可用时选择 GPU，否则明确记录为 CPU。
 日志出现 `stage=training_complete`，并且最终 checkpoint 与报告均非空，才表示
@@ -83,8 +88,9 @@ python3 experiments/vtr/prepare_tailcompile_v3_training.py \
   --out experiments/vtr/tailcompile_v3_training/bundle
 ```
 
-只有相同 design、placement seed、channel width 下的不同候选会构成训练 pair。失败运行作为明确的
-可布线性标签保留；成功运行同时使用拥塞、线长和 CPD。
+只有相同 design、channel width 下的不同候选会构成训练 pair。每个候选先跨 seed 计算失败率，
+并对成功运行的拥塞、线长和 CPD 取中位数。这样 seed 不会作为伪数值输入，也不会为同一候选对
+产生模型无法解释的 seed 条件冲突。
 
 ### 3. 烟雾训练
 
@@ -92,7 +98,7 @@ python3 experiments/vtr/prepare_tailcompile_v3_training.py \
 export KMP_DUPLICATE_LIB_OK=TRUE
 python3 experiments/vtr/train_tailcompile_v3_ranker.py \
   --dataset experiments/vtr/tailcompile_v3_training/bundle/dataset.json \
-  --out experiments/vtr/tailcompile_v3_training/model_bootstrap \
+  --out experiments/vtr/tailcompile_v3_training/model_width_conditioned \
   --epochs 200 --smoke-train-all
 ```
 
@@ -119,6 +125,7 @@ python3 experiments/vtr/tailcompile_v3.py \
   --device-ir /path/to/device_ir.json \
   --blif /path/to/design.blif \
   --checkpoint /path/to/ranker.pt \
+  --channel-width 100 \
   --out /path/to/candidates \
   --candidates 20 \
   --score-noise-std 0.05 \
@@ -126,6 +133,22 @@ python3 experiments/vtr/tailcompile_v3.py \
 ```
 
 min-cost flow 始终冻结并负责容量合法性；噪声只用于从训练后的代价面附近采样多个候选。
+v2 checkpoint 必须提供 `--channel-width`；旧的 width-agnostic bootstrap checkpoint 仍可不提供。
+
+### 6. 增加边界样本和第一个留出设计
+
+```bash
+bash experiments/vtr/tailcompile_v3_training/prepare_seed_aggregated_v2.sh
+bash experiments/vtr/tailcompile_v3_training/run_labels_seed_aggregated_v2.sh
+
+export TAILCOMPILE_DESIGNS="sha attention_layer spmv"
+export TAILCOMPILE_VALIDATION_DESIGNS="spmv"
+bash experiments/vtr/tailcompile_v3_training/train_platform.sh "$TAILCOMPILE_REPO"
+```
+
+该增量计划为 attention_layer 使用 100/110/115/120，给 SHA 边界增加 seed 13/14，并使用
+80/90/100/110 的 spmv 作为首个完整留出设计。三个设计只够验证拆分机制；正式泛化结论仍需
+更多独立设计族。
 
 ## 算力判断
 

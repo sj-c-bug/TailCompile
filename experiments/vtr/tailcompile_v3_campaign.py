@@ -40,7 +40,16 @@ def generate(config: dict) -> None:
         ]
         checkpoint = config['model'].get('checkpoint')
         if checkpoint:
+            target_width = row.get('candidate_channel_width')
+            if target_width is None:
+                raise ValueError(
+                    f'{row["design"]}: trained checkpoint requires candidate_channel_width')
+            if sorted(set(row['channel_widths'])) != [int(target_width)]:
+                raise ValueError(
+                    f'{row["design"]}: conditioned candidates may only be labeled at their '
+                    'candidate_channel_width; use one campaign row per width')
             command += ['--checkpoint', str(local_path(checkpoint)),
+                        '--channel-width', str(target_width),
                         '--score-noise-std', str(config['model']['score_noise_std']),
                         '--coordinate-noise-std', str(config['model']['coordinate_noise_std'])]
         subprocess.run(command, check=True)
