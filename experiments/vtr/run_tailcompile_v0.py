@@ -47,6 +47,8 @@ def main() -> int:
     parser.add_argument('--device-width', type=int,
                         help='Freeze auto-layout width; square layouts obtain the same height')
     parser.add_argument('--timeout', type=int, default=900)
+    parser.add_argument('--skip-existing', action='store_true',
+                        help='Return success when the exact run archive already exists')
     args = parser.parse_args()
     if args.fplace is not None:
         args.fplace = args.fplace.resolve()
@@ -86,6 +88,9 @@ def main() -> int:
     scratch = scratch_root / key
     archive = archive_root / key
     if scratch.exists() or archive.exists():
+        if args.skip_existing:
+            print(f'{key}: status=skipped_existing archive={archive}')
+            return 0
         parser.error(f'run already exists: {scratch} or {archive}')
     scratch.mkdir(parents=True)
     archive.mkdir(parents=True)

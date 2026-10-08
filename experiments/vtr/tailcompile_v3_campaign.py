@@ -80,6 +80,7 @@ def emit(config: dict, output: Path) -> dict:
                         '--legalizer', 'flat-recon', '--detailed-placer', 'annealer',
                         '--device-width', str(row['device_width']),
                         '--timeout', str(config['vpr_timeout_seconds']),
+                        '--skip-existing',
                     ]
                     rendered = [token if token.startswith('"${repo_root}') else shlex.quote(token)
                                 for token in command]
