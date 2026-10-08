@@ -42,6 +42,19 @@ VPR 和整数 min-cost flow 不可微，因此不能从 VPR 的拥塞值直接�
 - `requirements-training.txt`：训练依赖；
 - `train_platform.sh`：平台侧重建 bundle 和训练入口。
 
+`train_platform.sh` 会实时输出环境、数据准备、训练启动、每 10 个 epoch
+和最终验收信息。训练目录还会生成：
+
+- `model_bootstrap/progress.json`：最近一次已完成 epoch 和历史曲线；
+- `model_bootstrap/ranker_latest.pt`：每 20 个 epoch 保存的中间 checkpoint；
+- `model_bootstrap/ranker.pt`：200 个 epoch 全部完成后的最终 checkpoint；
+- `model_bootstrap/training_report.json`：最终训练报告。
+
+训练器默认使用 `--device auto`：CUDA 可用时选择 GPU，否则明确记录为 CPU。
+日志出现 `stage=training_complete`，并且最终 checkpoint 与报告均非空，才表示
+完整成功。只有 bundle 的 `design_count/action_count/trial_count` 汇总表示数据准备
+完成，不表示模型训练完成。
+
 ## 推荐执行顺序
 
 ### 1. 在有 VTR 的机器上采集标签

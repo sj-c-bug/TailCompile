@@ -14,6 +14,7 @@ import json
 import math
 import os
 import random
+import time
 from pathlib import Path
 
 os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
@@ -81,24 +82,45 @@ def make_pairs(design: dict, weights: dict, margin: float) -> list[dict]:
 
 def action_score(scores: torch.Tensor, coordinates: torch.Tensor, action: dict,
                  coordinate_weight: float) -> torch.Tensor:
-    assignment = torch.tensor(action['assignment'], dtype=torch.long)
+    assignment = torch.as_tensor(action['assignment'], dtype=torch.long, device=scores.device)
     nodes = torch.arange(len(action['assignment']), dtype=torch.long)
+    nodes = nodes.to(scores.device)
     region_score = scores[nodes, assignment].mean()
-    target_xy = torch.tensor(action['relative_xy'], dtype=torch.float32)
+    target_xy = torch.as_tensor(action['relative_xy'], dtype=torch.float32,
+                                device=coordinates.device)
     coordinate_score = -F.mse_loss(coordinates, target_xy)
     return region_score + coordinate_weight * coordinate_score
+
+
+def score_unique_actions(scores: torch.Tensor, coordinates: torch.Tensor,
+                         pairs: list[dict], coordinate_weight: float) -> dict[str, torch.Tensor]:
+    actions = {}
+    for pair in pairs:
+        actions[pair['preferred']['id']] = pair['preferred']
+        actions[pair['other']['id']] = pair['other']
+    return {action_id: action_score(scores, coordinates, action, coordinate_weight)
+            for action_id, action in actions.items()}
 
 
 def evaluate(model, pairs: list[dict], graphs: dict, coordinate_weight: float) -> dict:
     model.eval()
     correct, losses = 0, []
     with torch.no_grad():
+        by_design = {}
         for pair in pairs:
-            scores, coordinates = model(graphs[pair['design']])
-            preferred = action_score(scores, coordinates, pair['preferred'], coordinate_weight)
-            other = action_score(scores, coordinates, pair['other'], coordinate_weight)
-            correct += int(preferred > other)
-            losses.append(float(F.softplus(-(preferred - other))))
+            by_design.setdefault(pair['design'], []).append(pair)
+        for design, design_pairs in by_design.items():
+            # Graph embeddings only depend on the design, not the candidate pair.
+            # Reusing this forward pass avoids thousands of redundant full-graph
+            # GNN evaluations per epoch.
+            scores, coordinates = model(graphs[design])
+            action_scores = score_unique_actions(scores, coordinates, design_pairs,
+                                                  coordinate_weight)
+            for pair in design_pairs:
+                preferred = action_scores[pair['preferred']['id']]
+                other = action_scores[pair['other']['id']]
+                correct += int(preferred > other)
+                losses.append(float(F.softplus(-(preferred - other))))
     return {'pair_count': len(pairs), 'accuracy': correct / max(len(pairs), 1),
             'mean_pair_loss': sum(losses) / max(len(losses), 1)}
 
@@ -115,14 +137,32 @@ def main() -> None:
     parser.add_argument('--temperature', type=float, default=1.0)
     parser.add_argument('--pair-margin', type=float, default=0.05)
     parser.add_argument('--seed', type=int, default=2027)
+    parser.add_argument('--device', choices=('auto', 'cpu', 'cuda'), default='auto')
+    parser.add_argument('--log-every', type=int, default=10)
+    parser.add_argument('--checkpoint-every', type=int, default=20)
     parser.add_argument('--validation-designs', nargs='*', default=[])
     parser.add_argument('--smoke-train-all', action='store_true',
                         help='Allow training/evaluation on the same tiny dataset')
     args = parser.parse_args()
-    if args.epochs < 1 or args.temperature <= 0:
-        parser.error('epochs and temperature must be positive')
+    if (args.epochs < 1 or args.temperature <= 0 or args.log_every < 1
+            or args.checkpoint_every < 1):
+        parser.error('epochs, temperature, log-every and checkpoint-every must be positive')
     random.seed(args.seed)
     torch.manual_seed(args.seed)
+    if args.device == 'cuda' and not torch.cuda.is_available():
+        raise SystemExit('--device cuda requested but CUDA is unavailable')
+    torch_device = torch.device('cuda' if (args.device == 'cuda'
+                                           or args.device == 'auto'
+                                           and torch.cuda.is_available())
+                                else 'cpu')
+    print(json.dumps({
+        'stage': 'startup', 'python_pid': os.getpid(), 'torch': torch.__version__,
+        'requested_device': args.device, 'selected_device': str(torch_device),
+        'cuda_available': torch.cuda.is_available(),
+        'cuda_device': (torch.cuda.get_device_name(0)
+                        if torch_device.type == 'cuda' else None),
+    }), flush=True)
+    started = time.time()
     dataset = json.loads(args.dataset.read_text())
     bundle = args.dataset.parent
     weights = dict(DEFAULT_WEIGHTS)
@@ -133,8 +173,12 @@ def main() -> None:
         device_path = source_path(bundle, sources['device_ir'])
         blif_path = source_path(bundle, sources['mapped_blif'])
         logic = json.loads(logic_path.read_text())
-        device = json.loads(device_path.read_text())
-        graphs[design['design']] = graph_inputs(logic, device, blif_path)
+        device_ir = json.loads(device_path.read_text())
+        graph = graph_inputs(logic, device_ir, blif_path)
+        graphs[design['design']] = {
+            key: value.to(torch_device) if isinstance(value, torch.Tensor) else value
+            for key, value in graph.items()
+        }
         all_pairs.extend(make_pairs(design, weights, args.pair_margin))
     if not all_pairs:
         raise SystemExit('no controlled candidate pairs; collect >=2 actions under one condition')
@@ -149,31 +193,58 @@ def main() -> None:
         validation_pairs = train_pairs
     sample_graph = next(iter(graphs.values()))
     model = TwoTowerPlacementGNN(sample_graph['cluster_x'].shape[1],
-                                 sample_graph['region_x'].shape[1], args.hidden)
+                                 sample_graph['region_x'].shape[1], args.hidden).to(torch_device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate,
                                   weight_decay=args.weight_decay)
+    args.out.mkdir(parents=True, exist_ok=True)
+    print(json.dumps({
+        'stage': 'training_start', 'design_count': len(graphs),
+        'train_pair_count': len(train_pairs),
+        'validation_pair_count': len(validation_pairs), 'epochs': args.epochs,
+    }), flush=True)
     history = []
+    train_by_design = {}
+    for pair in train_pairs:
+        train_by_design.setdefault(pair['design'], []).append(pair)
     for epoch in range(1, args.epochs + 1):
         model.train()
-        shuffled = list(train_pairs)
-        random.shuffle(shuffled)
+        design_order = list(train_by_design)
+        random.shuffle(design_order)
         epoch_loss = 0.0
-        for pair in shuffled:
-            scores, coordinates = model(graphs[pair['design']])
-            preferred = action_score(scores, coordinates, pair['preferred'], args.coordinate_weight)
-            other = action_score(scores, coordinates, pair['other'], args.coordinate_weight)
-            loss = F.softplus(-(preferred - other) / args.temperature)
+        epoch_pairs = 0
+        for design in design_order:
+            design_pairs = train_by_design[design]
+            scores, coordinates = model(graphs[design])
+            action_scores = score_unique_actions(scores, coordinates, design_pairs,
+                                                  args.coordinate_weight)
+            pair_losses = []
+            for pair in design_pairs:
+                preferred = action_scores[pair['preferred']['id']]
+                other = action_scores[pair['other']['id']]
+                pair_losses.append(F.softplus(-(preferred - other) / args.temperature))
+            loss = torch.stack(pair_losses).mean()
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
             optimizer.step()
-            epoch_loss += float(loss.detach())
-        if epoch in {1, args.epochs} or epoch % max(args.epochs // 10, 1) == 0:
-            history.append({'epoch': epoch,
-                            'train_loss': epoch_loss / max(len(shuffled), 1),
-                            'validation': evaluate(model, validation_pairs, graphs,
-                                                   args.coordinate_weight)})
-    args.out.mkdir(parents=True, exist_ok=True)
+            epoch_loss += float(loss.detach()) * len(design_pairs)
+            epoch_pairs += len(design_pairs)
+        if epoch in {1, args.epochs} or epoch % args.log_every == 0:
+            row = {'epoch': epoch,
+                   'train_loss': epoch_loss / max(epoch_pairs, 1),
+                   'validation': evaluate(model, validation_pairs, graphs,
+                                          args.coordinate_weight),
+                   'elapsed_seconds': round(time.time() - started, 3)}
+            history.append(row)
+            print(json.dumps({'stage': 'epoch', **row}), flush=True)
+            (args.out / 'progress.json').write_text(json.dumps({
+                'schema': 'tailcompile-v3-training-progress-v1',
+                'device': str(torch_device), 'latest': row, 'history': history,
+            }, indent=2) + '\n')
+        if epoch % args.checkpoint_every == 0 and epoch != args.epochs:
+            torch.save({'schema': 'tailcompile-v3-intermediate-checkpoint-v1',
+                        'epoch': epoch, 'model_state': model.state_dict(),
+                        'hidden_width': args.hidden}, args.out / 'ranker_latest.pt')
     checkpoint = {
         'schema': 'tailcompile-v3-structured-ranker-v1',
         'model_state': model.state_dict(),
@@ -185,6 +256,7 @@ def main() -> None:
         'training_designs': sorted({row['design'] for row in train_pairs}),
         'validation_designs': sorted({row['design'] for row in validation_pairs}),
         'smoke_train_all': args.smoke_train_all,
+        'device': str(torch_device),
     }
     checkpoint_path = args.out / 'ranker.pt'
     torch.save(checkpoint, checkpoint_path)
@@ -196,11 +268,12 @@ def main() -> None:
         'final_train': evaluate(model, train_pairs, graphs, args.coordinate_weight),
         'final_validation': evaluate(model, validation_pairs, graphs, args.coordinate_weight),
         'history': history,
+        'device': str(torch_device), 'elapsed_seconds': round(time.time() - started, 3),
         'warning': ('smoke result is not an unbiased generalization estimate'
                     if args.smoke_train_all else None),
     }
     (args.out / 'training_report.json').write_text(json.dumps(report, indent=2) + '\n')
-    print(json.dumps(report, indent=2))
+    print(json.dumps({'stage': 'training_complete', **report}, indent=2), flush=True)
 
 
 if __name__ == '__main__':
