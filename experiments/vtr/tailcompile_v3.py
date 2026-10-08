@@ -134,7 +134,10 @@ class GraphLayer(nn.Module):
 
     def forward(self, x, src, dst, weight):
         aggregate = torch.zeros_like(x)
-        denominator = torch.zeros((x.shape[0], 1), dtype=x.dtype)
+        # Allocate temporary state beside the input features.  Creating this
+        # with torch.zeros(...) implicitly placed it on CPU and broke CUDA
+        # training when dst/scaled lived on the GPU.
+        denominator = x.new_zeros((x.shape[0], 1))
         if src.numel():
             scaled = weight / weight.mean().clamp_min(1e-6)
             aggregate.index_add_(0, dst, x[src] * scaled[:, None])

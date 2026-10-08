@@ -83,8 +83,8 @@ def make_pairs(design: dict, weights: dict, margin: float) -> list[dict]:
 def action_score(scores: torch.Tensor, coordinates: torch.Tensor, action: dict,
                  coordinate_weight: float) -> torch.Tensor:
     assignment = torch.as_tensor(action['assignment'], dtype=torch.long, device=scores.device)
-    nodes = torch.arange(len(action['assignment']), dtype=torch.long)
-    nodes = nodes.to(scores.device)
+    nodes = torch.arange(len(action['assignment']), dtype=torch.long,
+                         device=scores.device)
     region_score = scores[nodes, assignment].mean()
     target_xy = torch.as_tensor(action['relative_xy'], dtype=torch.float32,
                                 device=coordinates.device)
