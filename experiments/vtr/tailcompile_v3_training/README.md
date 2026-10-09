@@ -150,6 +150,12 @@ bash experiments/vtr/tailcompile_v3_training/train_platform.sh "$TAILCOMPILE_REP
 80/90/100/110 的 spmv 作为首个完整留出设计。三个设计只够验证拆分机制；正式泛化结论仍需
 更多独立设计族。
 
+`prepare_seed_aggregated_v2.sh` 在全新 Git 检出中会先调用
+`prepare_spmv_pilot_inputs.sh`。后者使用 `$VTR_ROOT` 中的 Koios `spmv.v` 自动生成未纳入 Git 的
+mapped BLIF、packed netlist 和压缩 RR graph；已有且非空的文件会被复用。可用
+`VTR_PYTHON=/path/to/python` 覆盖运行 `run_vtr_flow.py` 的 Python，VTR 中间文件保留在
+`$TAILCOMPILE_SCRATCH/spmv-pilot-inputs.*` 以便审计。
+
 ## 算力判断
 
 双塔 GNN 规模很小，本地 CPU 训练通常不是瓶颈。主要成本是 VPR 标签：当前 384 个任务中，

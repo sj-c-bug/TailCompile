@@ -4,6 +4,8 @@ set -eEuo pipefail
 repo_root="${TAILCOMPILE_REPO:-$(pwd)}"
 cd "$repo_root"
 
+bash experiments/vtr/tailcompile_v3_training/prepare_spmv_pilot_inputs.sh
+
 spmv_run="experiments/vtr/runs/pilot_v1/spmv"
 python3 experiments/vtr/tailcompile_v2.py \
   --design spmv \
