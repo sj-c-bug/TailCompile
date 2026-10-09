@@ -7,7 +7,7 @@ repo_root="${TAILCOMPILE_REPO:-$(pwd)}"
 vtr_root="${VTR_ROOT:?VTR_ROOT must point to the vtr-verilog-to-routing checkout}"
 scratch_base="${TAILCOMPILE_SCRATCH:-${repo_root}/vtr_work}"
 vtr_python="${VTR_PYTHON:-python3}"
-expected_vtr_commit="${VTR_COMMIT:-e422b08861dfc8500874f04105ba2a7eb2f11ccd}"
+expected_vtr_commit="${VTR_COMMIT:-}"
 
 cd "$repo_root"
 
@@ -37,13 +37,18 @@ for required in "$flow" "$source_v" "$include_v" "$arch" "$vpr"; do
 done
 
 actual_vtr_commit="$(git -C "$vtr_root" rev-parse HEAD 2>/dev/null || true)"
-if [[ "$actual_vtr_commit" != "$expected_vtr_commit" ]]; then
+if [[ -z "$actual_vtr_commit" ]]; then
+  echo "ERROR: cannot determine the VTR commit from $vtr_root" >&2
+  exit 2
+fi
+if [[ -n "$expected_vtr_commit" && "$actual_vtr_commit" != "$expected_vtr_commit" ]]; then
   echo "ERROR: VTR commit mismatch." >&2
   echo "  expected: $expected_vtr_commit" >&2
   echo "  actual:   ${actual_vtr_commit:-not a Git checkout}" >&2
-  echo "Set VTR_COMMIT only if intentionally starting a separate experiment cohort." >&2
+  echo "Unset VTR_COMMIT to use the checkout commit, or update it deliberately." >&2
   exit 2
 fi
+echo "Using VTR commit: $actual_vtr_commit"
 
 mkdir -p "$scratch_base" "$full_archive" "$rr_archive"
 work_root="$(mktemp -d "$scratch_base/spmv-pilot-inputs.XXXXXX")"

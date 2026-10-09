@@ -155,6 +155,8 @@ bash experiments/vtr/tailcompile_v3_training/train_platform.sh "$TAILCOMPILE_REP
 mapped BLIF、packed netlist 和压缩 RR graph；已有且非空的文件会被复用。可用
 `VTR_PYTHON=/path/to/python` 覆盖运行 `run_vtr_flow.py` 的 Python，VTR 中间文件保留在
 `$TAILCOMPILE_SCRATCH/spmv-pilot-inputs.*` 以便审计。
+VTR commit 默认从 `$VTR_ROOT` 的 Git `HEAD` 自动读取并写入每个新 manifest；若设置
+`VTR_COMMIT`，它只作为严格版本约束，和实际 `HEAD` 不一致时流程会停止。
 
 ## 算力判断
 

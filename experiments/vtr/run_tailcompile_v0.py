@@ -17,7 +17,15 @@ VTR = Path(os.environ.get('VTR_ROOT', '/home/phoenix/tools/vtr-e422b088'))
 ARCH = VTR / 'vtr_flow/arch/COFFE_22nm/k6FracN10LB_mem20K_complexDSP_customSB_22nm.xml'
 SHARED = Path(os.environ.get(
     'TAILCOMPILE_SHARED', '/mnt/c/Users/phoenix/Documents/ChatGPT/DAC2027/experiments/vtr'))
-COMMIT = os.environ.get('VTR_COMMIT', 'e422b08861dfc8500874f04105ba2a7eb2f11ccd')
+
+
+def detect_vtr_commit(root: Path) -> str | None:
+    """Return the commit of the VTR binary checkout instead of trusting a stale label."""
+    result = subprocess.run(
+        ['git', '-C', str(root), 'rev-parse', 'HEAD'],
+        capture_output=True, text=True, check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
 
 
 def digest(path: Path) -> str:
@@ -50,6 +58,13 @@ def main() -> int:
     parser.add_argument('--skip-existing', action='store_true',
                         help='Return success when the exact run archive already exists')
     args = parser.parse_args()
+    actual_vtr_commit = detect_vtr_commit(VTR)
+    expected_vtr_commit = os.environ.get('VTR_COMMIT')
+    if actual_vtr_commit is None:
+        parser.error(f'cannot determine VTR commit from checkout: {VTR}')
+    if expected_vtr_commit and actual_vtr_commit != expected_vtr_commit:
+        parser.error('VTR commit mismatch: '
+                     f'expected {expected_vtr_commit}, actual {actual_vtr_commit}')
     if args.fplace is not None:
         args.fplace = args.fplace.resolve()
     if args.packed_net is not None:
@@ -150,7 +165,9 @@ def main() -> int:
         'input_packed_net': str(args.packed_net) if args.packed_net else None,
         'input_packed_net_sha256': packed_net_input_sha256,
         'scratch_packed_net': str(packed_net_work) if packed_net_work else None,
-        'vtr_commit': COMMIT, 'seed': args.seed, 'route_chan_width': args.width,
+        'vtr_commit': actual_vtr_commit,
+        'vtr_commit_constraint': expected_vtr_commit,
+        'seed': args.seed, 'route_chan_width': args.width,
         'ap_full_legalizer': args.legalizer, 'ap_detailed_placer': args.detailed_placer,
         'device_size': args.device_size,
         'device_width': args.device_width,
