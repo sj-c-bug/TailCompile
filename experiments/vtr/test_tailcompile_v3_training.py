@@ -72,7 +72,11 @@ class TrainingDefinitionTest(unittest.TestCase):
         dst = torch.tensor([1, 2], dtype=torch.long, device=device)
         weight = torch.ones(2, device=device)
         result = layer(x, src, dst, weight)
-        self.assertEqual(result.device, device)
+        self.assertEqual(result.device.type, device.type)
+        if device.type == 'cuda':
+            # torch.device('cuda') denotes the current CUDA device, while a
+            # realized tensor reports its explicit index (for example cuda:0).
+            self.assertEqual(result.device.index, torch.cuda.current_device())
 
 
 if __name__ == '__main__':
