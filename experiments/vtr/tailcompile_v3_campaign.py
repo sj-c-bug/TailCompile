@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shlex
 import subprocess
@@ -26,9 +27,56 @@ def portable_argument(path: Path) -> str:
     return f'"${{repo_root}}/{relative}"'
 
 
+def file_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def reusable_pool(output: Path, row: dict, config: dict) -> bool:
+    """Reuse an immutable candidate pool only when its generation signature matches."""
+    summary_path = output / 'build_summary.json'
+    if not summary_path.is_file():
+        return False
+    summary = json.loads(summary_path.read_text())
+    candidates = summary.get('candidates', [])
+    expected_seeds = list(range(int(row['candidate_seed']),
+                                int(row['candidate_seed']) + int(row['candidate_count'])))
+    checkpoint = config['model'].get('checkpoint')
+    checkpoint_digest = file_digest(local_path(checkpoint)) if checkpoint else None
+    expected_score_noise = float(config['model'].get('score_noise_std', 0.0)) if checkpoint else 0.0
+    expected_coordinate_noise = (
+        float(config['model'].get('coordinate_noise_std', 0.0)) if checkpoint else 0.0)
+    signature_matches = (
+        len(candidates) == int(row['candidate_count'])
+        and [int(candidate['seed']) for candidate in candidates] == expected_seeds
+        and int(summary.get('hidden_width', -1)) == int(config['model']['hidden'])
+        and float(summary.get('partition_prior_weight', -1.0))
+        == float(config['model']['partition_prior_weight'])
+        and summary.get('checkpoint_sha256') == checkpoint_digest
+        and float(summary.get('score_noise_std', 0.0)) == expected_score_noise
+        and float(summary.get('coordinate_noise_std', 0.0)) == expected_coordinate_noise
+        and summary.get('channel_width') == row.get('candidate_channel_width')
+    )
+    artifacts_exist = all(
+        (output / candidate[name]).is_file()
+        for candidate in candidates for name in ('fplace', 'binding', 'lowering')
+    )
+    if not signature_matches or not artifacts_exist:
+        raise ValueError(
+            f'candidate pool already exists with a different or incomplete signature: {output}; '
+            'use a new candidate_output directory instead of overwriting labeled actions')
+    print(f'Reusing immutable candidate pool: {output}', flush=True)
+    return True
+
+
 def generate(config: dict) -> None:
     for row in config['designs']:
         output = local_path(row['candidate_output'])
+        if reusable_pool(output, row, config):
+            continue
         command = [
             sys.executable, str(HERE / 'tailcompile_v3.py'),
             '--logic-ir', str(local_path(row['logic_ir'])),

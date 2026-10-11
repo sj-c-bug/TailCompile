@@ -158,6 +158,21 @@ mapped BLIF、packed netlist 和压缩 RR graph；已有且非空的文件会被
 VTR commit 默认从 `$VTR_ROOT` 的 Git `HEAD` 自动读取并写入每个新 manifest；若设置
 `VTR_COMMIT`，它只作为严格版本约束，和实际 `HEAD` 不一致时流程会停止。
 
+### 7. spmv 留出设计闭环
+
+`model_width_conditioned/ranker.pt` 训练完成后，为 80/90/100/110 各生成 24 个条件化候选，
+保存到 `tailcompile_v3/spmv/4x4/pools/trained_w<W>_24/`。随后运行：
+
+```bash
+bash experiments/vtr/tailcompile_v3_training/run_spmv_closed_loop.sh
+```
+
+脚本新增 32 个 Default/确定性预绑定运行和 384 个 trained-GNN 运行；已有的 384 个
+bootstrap-GNN 标签直接复用。spmv 的 `rrg_only`、`mean_rrg`、`tail_rrg` 当前具有相同
+`.fplace` 哈希，因此只运行一次并在分析中标记为同一确定性布局，避免伪重复。
+运行结束后脚本自动生成 `spmv_closed_loop_summary.json` 和 `.csv`。该汇总必须在服务器原始
+occupancy 文件仍存在时执行；Git 中只保存汇总、manifest 和 `vpr.out`。
+
 ## 算力判断
 
 双塔 GNN 规模很小，本地 CPU 训练通常不是瓶颈。主要成本是 VPR 标签：当前 384 个任务中，
