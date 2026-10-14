@@ -5,7 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from tailcompile_v4_risk import RiskEvaluator, build_supply, cvar, search
+from tailcompile_v4_risk import (RiskEvaluator, build_supply, cvar,
+                                 matched_scales_for, objective, search)
 
 
 def fixture():
@@ -24,6 +25,14 @@ class RiskTest(unittest.TestCase):
     def test_fractional_cvar(self):
         self.assertAlmostEqual(cvar([1, 2, 3], .5), 8 / 3)
         self.assertEqual(cvar([1, 2, 3], 1), 2)
+
+    def test_confirmatory_mean_and_tail_start_with_matched_magnitude(self):
+        state = {'cvar': 4.0, 'mean': 1.0, 'wire': 10.0, 'timing': 5.0}
+        scales = matched_scales_for(state)
+        shared = 0.15 + 0.25
+        self.assertAlmostEqual(objective(state, scales, 'tail') - shared, 1.0)
+        self.assertAlmostEqual(objective(state, scales, 'mean') - shared, 1.0)
+        self.assertAlmostEqual(objective(state, scales, 'none'), shared)
 
     def test_incremental_matches_full_and_capacity(self):
         args = fixture()

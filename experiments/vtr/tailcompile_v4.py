@@ -8,7 +8,8 @@ import json
 import time
 from pathlib import Path
 
-from tailcompile_v4_risk import VTR_COMMIT, RiskEvaluator, digest, region_at, save, scales_for, search
+from tailcompile_v4_risk import (VTR_COMMIT, RiskEvaluator, digest, matched_scales_for,
+                                 region_at, save, scales_for, search)
 from tailrisk_core import parse_blif
 from tailcompile_v2 import contract_edges
 
@@ -18,7 +19,8 @@ def load(path):
 
 
 def build(logic_path, device_path, blif, supply_path, det_lowering, gnn_lowering, out,
-          budget=512, seed=2027):
+          budget=512, seed=2027, matched_risk_scales=False,
+          methods=None):
     from tailcompile_v3 import lower_fplace
     import torch
 
@@ -26,7 +28,13 @@ def build(logic_path, device_path, blif, supply_path, det_lowering, gnn_lowering
     inputs = {k: digest(p) for k, p in (
         ('logic', logic_path), ('device', device_path), ('blif', blif), ('supply', supply_path),
         ('deterministic_start', det_lowering), ('gnn_start', gnn_lowering))}
-    inputs.update(budget=budget, search_seed=seed, implementation=digest(Path(__file__)),
+    methods = tuple(methods or ('base', 'tail', 'mean', 'none', 'random'))
+    unknown = set(methods) - {'base', 'tail', 'mean', 'none', 'random'}
+    if unknown:
+        raise ValueError(f'unknown candidate methods: {sorted(unknown)}')
+    inputs.update(budget=budget, search_seed=seed,
+                  risk_normalization=('matched_initial' if matched_risk_scales else 'legacy_shared_cvar'),
+                  candidate_methods=list(methods), implementation=digest(Path(__file__)),
                   risk_implementation=digest(Path(__file__).with_name('tailcompile_v4_risk.py')))
     if (out / 'build_summary.json').is_file():
         old = load(out / 'build_summary.json')
@@ -71,16 +79,23 @@ def build(logic_path, device_path, blif, supply_path, det_lowering, gnn_lowering
     reference = evaluator.state(starts['det'][0])
     if reference is None:
         raise ValueError('deterministic start is unreachable under the coarse wire-span proxy')
-    scales = scales_for(reference)
+    shared_scales = scales_for(reference)
     out.mkdir(parents=True, exist_ok=True)
     results = []
     start_time = time.monotonic()
     for name, (assignment, coordinates) in starts.items():
-        for suffix, mode, policy in (('base', 'tail', 'hotspot'),
-                                     ('tail', 'tail', 'hotspot'),
-                                     ('mean', 'mean', 'hotspot'),
-                                     ('none', 'none', 'hotspot'),
-                                     ('random', 'tail', 'random_restart')):
+        if matched_risk_scales:
+            start_state = evaluator.state(assignment)
+            if start_state is None:
+                raise ValueError(f'{name} start is unreachable under the coarse wire-span proxy')
+            scales = matched_scales_for(start_state)
+        else:
+            scales = shared_scales
+        definitions = {'base': ('tail', 'hotspot'), 'tail': ('tail', 'hotspot'),
+                       'mean': ('mean', 'hotspot'), 'none': ('none', 'hotspot'),
+                       'random': ('tail', 'random_restart')}
+        for suffix in methods:
+            mode, policy = definitions[suffix]
             method = f'{name}_{suffix}'
             print(json.dumps({'stage': 'refine', 'design': logic['design'], 'method': method}), flush=True)
             final, audit = search(evaluator, assignment, 0 if suffix == 'base' else budget,
@@ -111,7 +126,9 @@ def build(logic_path, device_path, blif, supply_path, det_lowering, gnn_lowering
                'demand_policy': 'one unit per net per shared wire pool; fanout paths unioned; clocks/constants excluded by tailrisk_core',
                'driverless_net_count': sum(not e.drivers for e in edges),
                'timing_policy': 'existing pre-placement unit-delay depth proxy; not STA/CPD',
-               'normalization_reference': 'same deterministic start for all methods',
+               'normalization_reference': ('each initializer: mean/initial_mean and cvar/initial_cvar'
+                                           if matched_risk_scales else
+                                           'same deterministic start for all methods'),
                'search_seconds_total': time.monotonic() - start_time, 'candidates': results}
     save(out / 'build_summary.json', summary)
     return summary
@@ -123,9 +140,11 @@ def main():
         p.add_argument('--' + flag, type=Path, required=True)
     p.add_argument('--budget', type=int, default=512)
     p.add_argument('--seed', type=int, default=2027)
+    p.add_argument('--matched-risk-scales', action='store_true')
+    p.add_argument('--methods', nargs='+', choices=('base', 'tail', 'mean', 'none', 'random'))
     a = p.parse_args()
     build(a.logic_ir, a.device_ir, a.blif, a.supply, a.det_lowering, a.gnn_lowering,
-          a.out, a.budget, a.seed)
+          a.out, a.budget, a.seed, a.matched_risk_scales, a.methods)
 
 
 if __name__ == '__main__':

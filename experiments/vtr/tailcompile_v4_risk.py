@@ -285,9 +285,34 @@ def scales_for(state):
             'timing': max(state['timing'], 1.0)}
 
 
+def matched_scales_for(state):
+    """Normalize mean and tail risk to one at the same initial assignment.
+
+    v4 deliberately shared the CVaR denominator across both objectives.  The
+    confirmatory experiment needs a fairer ablation: only the aggregation
+    operator (mean versus upper-tail CVaR) should differ at initialization.
+    """
+    return {'tail_risk': max(state['cvar'], 1e-9),
+            'mean_risk': max(state['mean'], 1e-9),
+            'wire': max(state['wire'], 1.0),
+            'timing': max(state['timing'], 1.0)}
+
+
 def objective(state, scales, mode):
     risk = state['cvar'] if mode == 'tail' else state['mean'] if mode == 'mean' else 0.0
-    return risk / scales['risk'] + 0.15 * state['wire'] / scales['wire'] + 0.25 * state['timing'] / scales['timing']
+    if mode == 'none':
+        risk_term = 0.0
+    elif mode == 'tail' and 'tail_risk' in scales:
+        risk_scale = scales['tail_risk']
+        risk_term = risk / risk_scale
+    elif mode == 'mean' and 'mean_risk' in scales:
+        risk_scale = scales['mean_risk']
+        risk_term = risk / risk_scale
+    else:
+        # Backward-compatible v4 semantics.
+        risk_scale = scales['risk']
+        risk_term = risk / risk_scale
+    return risk_term + 0.15 * state['wire'] / scales['wire'] + 0.25 * state['timing'] / scales['timing']
 
 
 def search(evaluator, initial, budget=512, seed=2027, mode='tail', scales=None,
