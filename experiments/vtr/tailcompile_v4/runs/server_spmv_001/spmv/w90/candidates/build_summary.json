@@ -1,0 +1,359 @@
+{
+  "schema": "tailcompile-v4-build-v1",
+  "design": "spmv",
+  "channel_width": 90,
+  "inputs": {
+    "logic": "e79cf14bfbf8e00e7e143e2af1c869fc41c34e185cc6027d8df93ee3a344100a",
+    "device": "b1a64fc067508eff6c92a424dfaba29ad6b1d7acb3757deee39e27e2c0876456",
+    "blif": "6f033d088c9a88a41ae323be82ad835da8c3998e77e767e70cd604f43e7b16ce",
+    "supply": "17cf7cb3b92195be35fde407108acdefd0b117809ab5455b655503d3c146d6ab",
+    "deterministic_start": "8ee149a0320924d754355abd307178f84f1e3f46c816ef03046b9a26b51c8703",
+    "gnn_start": "969d57428ceb611416540740e8713192b0d5d9134a4d0c5ac3c5d35ec5a86933",
+    "budget": 512,
+    "search_seed": 2027,
+    "implementation": "ff37c861d868c9ca75812a894e925c4fa1bbebe439e4e2fcd5f1ed02e9443dd3",
+    "risk_implementation": "77a24dea09f91621e88b2c6d2e6964c2b86dae16fa36637e1d418f28e5dde30f"
+  },
+  "parser_audit": {
+    "top_model": "spmv",
+    "model_count": 5,
+    "primitive_count": 14467,
+    "primitive_kinds": {
+      "bram": 2376,
+      "dsp": 32,
+      "ff": 4009,
+      "io_in": 82,
+      "io_out": 17,
+      "lut": 5532,
+      "other": 2419
+    }
+  },
+  "edge_audit": {
+    "excluded_clock_nets": [
+      "clk"
+    ],
+    "excluded_constant_names": [
+      "$false",
+      "$true",
+      "0",
+      "1",
+      "gnd",
+      "open",
+      "unconn",
+      "vcc"
+    ],
+    "connected_hyperedges": 16370,
+    "unit_delay_max_path_depth": 18,
+    "combinational_cycle_nodes": 0,
+    "multi_driver_net_count": 0,
+    "undriven_net_count": 0,
+    "high_fanout_over_64_count": 12
+  },
+  "demand_policy": "one unit per net per shared wire pool; fanout paths unioned; clocks/constants excluded by tailrisk_core",
+  "driverless_net_count": 0,
+  "timing_policy": "existing pre-placement unit-delay depth proxy; not STA/CPD",
+  "normalization_reference": "same deterministic start for all methods",
+  "search_seconds_total": 21.665907077491283,
+  "candidates": [
+    {
+      "method": "det_base",
+      "fplace": "det_base.fplace",
+      "fplace_sha256": "6a8235875a1dfaa2359737b042b59bbd2bd0aa80078f19c6d762f19ff684e315",
+      "search": "det_base_search.json",
+      "binding": "det_base_binding.json",
+      "lowering": "det_base_lowering.json",
+      "evaluations": 0,
+      "accepted": 0,
+      "search_seconds": 0.01177956908941269,
+      "lowering_seconds": 0.06342586502432823,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5957184022424825,
+        "mean": 0.3511130629623067,
+        "max": 0.766906474820137,
+        "wire": 251926.0,
+        "timing": 43355.41666666616,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5957184022424825,
+        "mean": 0.3511130629623067,
+        "max": 0.766906474820137,
+        "wire": 251926.0,
+        "timing": 43355.41666666616,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "det_tail",
+      "fplace": "det_tail.fplace",
+      "fplace_sha256": "eaee4db74da4dd8129f3f3e812dbfe0123a3edc2b50a01dab5280466fbd4054f",
+      "search": "det_tail_search.json",
+      "binding": "det_tail_binding.json",
+      "lowering": "det_tail_lowering.json",
+      "evaluations": 512,
+      "accepted": 91,
+      "search_seconds": 2.1929846815764904,
+      "lowering_seconds": 0.06590541824698448,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5957184022424825,
+        "mean": 0.3511130629623067,
+        "max": 0.766906474820137,
+        "wire": 251926.0,
+        "timing": 43355.41666666616,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.48292045271898565,
+        "mean": 0.34525337925441923,
+        "max": 0.6474820143884841,
+        "wire": 246269.5,
+        "timing": 42859.38888888842,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "det_mean",
+      "fplace": "det_mean.fplace",
+      "fplace_sha256": "9e1285cb78a3344af3c365afcc5595b4363ae55ca31d95e492ab715e73a28d3b",
+      "search": "det_mean_search.json",
+      "binding": "det_mean_binding.json",
+      "lowering": "det_mean_lowering.json",
+      "evaluations": 512,
+      "accepted": 73,
+      "search_seconds": 1.8660506904125214,
+      "lowering_seconds": 0.06452503055334091,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5957184022424825,
+        "mean": 0.3511130629623067,
+        "max": 0.766906474820137,
+        "wire": 251926.0,
+        "timing": 43355.41666666616,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5309188524707815,
+        "mean": 0.3223224527344852,
+        "max": 0.7539568345323674,
+        "wire": 230594.5,
+        "timing": 39369.47222222179,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "det_none",
+      "fplace": "det_none.fplace",
+      "fplace_sha256": "2a32b400670ae2c5256e3259df13b27553089122be719b001bd456a38019324c",
+      "search": "det_none_search.json",
+      "binding": "det_none_binding.json",
+      "lowering": "det_none_lowering.json",
+      "evaluations": 512,
+      "accepted": 75,
+      "search_seconds": 1.8983652144670486,
+      "lowering_seconds": 0.06657066941261292,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5957184022424825,
+        "mean": 0.3511130629623067,
+        "max": 0.766906474820137,
+        "wire": 251926.0,
+        "timing": 43355.41666666616,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5242572348545057,
+        "mean": 0.3224073698232221,
+        "max": 0.7352517985611445,
+        "wire": 230694.0,
+        "timing": 39103.972222221906,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "det_random",
+      "fplace": "det_random.fplace",
+      "fplace_sha256": "6397bf8431be48afb4c854fa64fe3bafd668a338750473f09e0e52bd189ab256",
+      "search": "det_random_search.json",
+      "binding": "det_random_binding.json",
+      "lowering": "det_random_lowering.json",
+      "evaluations": 512,
+      "accepted": 2,
+      "search_seconds": 0.98356918618083,
+      "lowering_seconds": 0.06371933221817017,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5957184022424825,
+        "mean": 0.3511130629623067,
+        "max": 0.766906474820137,
+        "wire": 251926.0,
+        "timing": 43355.41666666616,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.5888303368498815,
+        "mean": 0.3502277272452427,
+        "max": 0.766906474820137,
+        "wire": 251266.0,
+        "timing": 43365.69444444394,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "gnn_base",
+      "fplace": "gnn_base.fplace",
+      "fplace_sha256": "3a6446c02c1c5c59b65f7a7b78847c6ee47d1a838a8f00e149fe3b96d2d43279",
+      "search": "gnn_base_search.json",
+      "binding": "gnn_base_binding.json",
+      "lowering": "gnn_base_lowering.json",
+      "evaluations": 0,
+      "accepted": 0,
+      "search_seconds": 0.01439075917005539,
+      "lowering_seconds": 0.06403423845767975,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 1.3208974250312906,
+        "mean": 0.8021724049396167,
+        "max": 1.4563233376793026,
+        "wire": 577595.0,
+        "timing": 141000.8055555567,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 1.3208974250312906,
+        "mean": 0.8021724049396167,
+        "max": 1.4563233376793026,
+        "wire": 577595.0,
+        "timing": 141000.8055555567,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "gnn_tail",
+      "fplace": "gnn_tail.fplace",
+      "fplace_sha256": "d2156756fec5bd8bcd263e5329af106885d7ff2598931297d1df550e8fe562ad",
+      "search": "gnn_tail_search.json",
+      "binding": "gnn_tail_binding.json",
+      "lowering": "gnn_tail_lowering.json",
+      "evaluations": 512,
+      "accepted": 220,
+      "search_seconds": 4.474479962140322,
+      "lowering_seconds": 0.0666838176548481,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 1.3208974250312906,
+        "mean": 0.8021724049396167,
+        "max": 1.4563233376793026,
+        "wire": 577595.0,
+        "timing": 141000.8055555567,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.8592501746616339,
+        "mean": 0.6371194918130382,
+        "max": 0.9543676662320767,
+        "wire": 456805.5,
+        "timing": 98240.66666666688,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "gnn_mean",
+      "fplace": "gnn_mean.fplace",
+      "fplace_sha256": "754982ec1df1872873fca6334b30d5fce79c4b7c165f3196ee4ccf25b3e4106d",
+      "search": "gnn_mean_search.json",
+      "binding": "gnn_mean_binding.json",
+      "lowering": "gnn_mean_lowering.json",
+      "evaluations": 512,
+      "accepted": 198,
+      "search_seconds": 4.077563896775246,
+      "lowering_seconds": 0.06658145785331726,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 1.3208974250312906,
+        "mean": 0.8021724049396167,
+        "max": 1.4563233376793026,
+        "wire": 577595.0,
+        "timing": 141000.8055555567,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.968859047928988,
+        "mean": 0.6397229152482381,
+        "max": 1.1082138200782394,
+        "wire": 460574.0,
+        "timing": 101870.25000000086,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "gnn_none",
+      "fplace": "gnn_none.fplace",
+      "fplace_sha256": "f2f810501522fb1aad4db10802c9f24dac7a8950874540ee17f5bc7d04f134de",
+      "search": "gnn_none_search.json",
+      "binding": "gnn_none_binding.json",
+      "lowering": "gnn_none_lowering.json",
+      "evaluations": 512,
+      "accepted": 194,
+      "search_seconds": 3.994116585701704,
+      "lowering_seconds": 0.06679755449295044,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 1.3208974250312906,
+        "mean": 0.8021724049396167,
+        "max": 1.4563233376793026,
+        "wire": 577595.0,
+        "timing": 141000.8055555567,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.9941550550648518,
+        "mean": 0.6531036024514252,
+        "max": 1.1566757493188136,
+        "wire": 469206.5,
+        "timing": 102346.9444444444,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "gnn_random",
+      "fplace": "gnn_random.fplace",
+      "fplace_sha256": "2748c095f55140aa4b2b61d2b8fd05019b090f8bb89bd2a108511196c22a8e16",
+      "search": "gnn_random_search.json",
+      "binding": "gnn_random_binding.json",
+      "lowering": "gnn_random_lowering.json",
+      "evaluations": 512,
+      "accepted": 5,
+      "search_seconds": 1.060957659035921,
+      "lowering_seconds": 0.06665431335568428,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 1.3208974250312906,
+        "mean": 0.8021724049396167,
+        "max": 1.4563233376793026,
+        "wire": 577595.0,
+        "timing": 141000.8055555567,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 1.2961708331518471,
+        "mean": 0.7918796612152357,
+        "max": 1.4432855280313226,
+        "wire": 570380.5,
+        "timing": 137061.27777777877,
+        "tail_fraction": 0.25
+      }
+    }
+  ]
+}
