@@ -46,6 +46,7 @@ git pull --ff-only
 source env.sh
 
 export TAILCOMPILE_V5_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v5/runs/holdout_001"
+export TAILCOMPILE_VPR_JOBS=2
 mkdir -p "$TAILCOMPILE_REPO/logs"
 timestamp="$(date +%Y%m%d_%H%M%S)"
 log="$TAILCOMPILE_REPO/logs/tailcompile_v5_${timestamp}.log"
@@ -57,6 +58,8 @@ echo "LOG=$log"
 ```
 
 可用 `tail -f "$log"` 查看进度。脚本具有阶段级可恢复性；如果出现 `other_failure` 或输入签名变化，会停止并保留现场，不会静默覆盖。
+
+`TAILCOMPILE_VPR_JOBS` 控制边界扫描和确认阶段同时运行的 VPR 进程数，默认值为 1。建议在 80 GiB 限额的平台上从 2 开始；观察 `memory.current`、`memory.events` 和 CPU 利用率后再尝试 4。RRG XML 解析和候选准备仍保持串行，避免大型设计再次触发 OOM。并行度不进入算法定义，也不改变 seed、候选或 VPR 参数。
 
 ## 验收
 

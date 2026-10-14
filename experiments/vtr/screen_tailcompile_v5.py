@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from run_tailcompile_v4 import Backend, run_one
@@ -25,8 +26,12 @@ def main():
     p.add_argument('--screen-seeds', nargs='+', type=int, default=[11, 12])
     p.add_argument('--confirm-seeds', nargs='+', type=int,
                    default=[21, 22, 23, 24, 25, 26, 27, 28])
+    p.add_argument('--jobs', type=int,
+                   default=int(os.environ.get('TAILCOMPILE_VPR_JOBS', '1')))
     p.add_argument('--timeout', type=int, default=1800)
     a = p.parse_args()
+    if a.jobs < 1:
+        p.error('--jobs must be at least 1')
     if set(a.screen_seeds) & set(a.confirm_seeds):
         p.error('screen and confirm seeds must be disjoint')
     source = load(a.inputs)
@@ -39,18 +44,26 @@ def main():
         design = record['design']
         blif, packed = Path(record['mapped_blif']), Path(record['packed_net'])
         widths = sorted({int(x) for x in record['screen_widths']})
-        by_width = {}
-        for width in widths:
-            statuses = []
-            for seed in a.screen_seeds:
-                directory = a.out / 'runs' / design / f'w{width}' / f'default_s{seed}'
-                result = run_one(backend, directory, blif, packed, width,
-                                 int(record['device_width']), seed, timeout=a.timeout)
-                statuses.append(result['vpr_status'])
-                screen_rows.append({'design': design, 'width': width, 'seed': seed,
-                                    'status': result['vpr_status'],
-                                    'directory': directory.relative_to(a.out).as_posix()})
-            by_width[width] = statuses
+        tasks = [(width, seed,
+                  a.out / 'runs' / design / f'w{width}' / f'default_s{seed}')
+                 for width in widths for seed in a.screen_seeds]
+
+        def execute(task):
+            width, seed, directory = task
+            result = run_one(backend, directory, blif, packed, width,
+                             int(record['device_width']), seed, timeout=a.timeout)
+            return width, seed, directory, result['vpr_status']
+
+        # executor.map preserves task order, so the frozen summary is
+        # deterministic even though independent VPR processes run in parallel.
+        with ThreadPoolExecutor(max_workers=a.jobs) as executor:
+            outcomes = list(executor.map(execute, tasks))
+        by_width = {width: [] for width in widths}
+        for width, seed, directory, status in outcomes:
+            by_width[width].append(status)
+            screen_rows.append({'design': design, 'width': width, 'seed': seed,
+                                'status': status,
+                                'directory': directory.relative_to(a.out).as_posix()})
         full_success = [w for w in widths if all(s == 'success' for s in by_width[w])]
         if not full_success:
             censored.append({'design': design, 'reason': 'no_full_success',
@@ -68,6 +81,7 @@ def main():
                          'screen_status': {str(w): by_width[w] for w in (low, high)}})
     screen = {'schema': 'tailcompile-v5-default-screen-v1', 'vtr_commit': VTR_COMMIT,
               'input_config_sha256': digest(a.inputs), 'screen_seeds': a.screen_seeds,
+              'parallel_jobs': a.jobs,
               'rows': screen_rows, 'selected_design_count': len(selected), 'censored': censored}
     save(a.out / 'screen_summary.json', screen)
     if len(selected) < 3:

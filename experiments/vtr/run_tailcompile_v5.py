@@ -11,6 +11,7 @@ import statistics
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from run_tailcompile_v4 import Backend, run_one, summarize
@@ -166,7 +167,7 @@ def verify_lock(root):
     return lock
 
 
-def run_confirmation(root, config, backend, timeout):
+def run_confirmation(root, config, backend, timeout, jobs=1):
     verify_lock(root)
     plan = []
     for record in config['designs']:
@@ -194,14 +195,23 @@ def run_confirmation(root, config, backend, timeout):
                         spec['search_evaluations'] = row['evaluations']
                     plan.append(spec)
     save(root / 'plan.json', {'schema': 'tailcompile-v5-confirmatory-plan-v1',
-                              'config': config, 'runs': plan})
-    for spec in plan:
-        record = next(row for row in config['designs'] if row['design'] == spec['design'])
+                              'config': config, 'parallel_jobs': jobs, 'runs': plan})
+    records = {row['design']: row for row in config['designs']}
+
+    def execute(spec):
+        record = records[spec['design']]
         inputs = root / spec['inputs']
-        run_one(backend, root / spec['directory'],
-                inputs / f'{spec["design"]}.pre-vpr.blif', inputs / f'{spec["design"]}.net',
-                spec['width'], int(record['device_width']), spec['seed'],
-                root / spec['candidate'] if spec['candidate'] else None, timeout=timeout)
+        return run_one(backend, root / spec['directory'],
+                       inputs / f'{spec["design"]}.pre-vpr.blif',
+                       inputs / f'{spec["design"]}.net',
+                       spec['width'], int(record['device_width']), spec['seed'],
+                       root / spec['candidate'] if spec['candidate'] else None,
+                       timeout=timeout)
+
+    with ThreadPoolExecutor(max_workers=jobs) as executor:
+        # Consume the iterator so worker exceptions stop the campaign.
+        for _ in executor.map(execute, plan):
+            pass
     summary = summarize(root)
     summary['interpretation'] = ('preregistered heterogeneity-stratified 2D confirmation; '
                                  'screening seeds excluded; strata locked before method VPR runs')
@@ -215,8 +225,12 @@ def main():
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--vtr-root', default=os.environ.get('VTR_ROOT'))
     p.add_argument('--stage', choices=('prepare', 'run', 'summarize', 'all'), default='all')
+    p.add_argument('--jobs', type=int,
+                   default=int(os.environ.get('TAILCOMPILE_VPR_JOBS', '1')))
     p.add_argument('--timeout', type=int, default=1800)
     a = p.parse_args()
+    if a.jobs < 1:
+        p.error('--jobs must be at least 1')
     config = load(a.config)
     if config['vtr_commit'] != VTR_COMMIT:
         raise ValueError('confirmatory config VTR commit mismatch')
@@ -234,7 +248,7 @@ def main():
     if a.stage in ('prepare', 'all'):
         prepare(a.out, config, backend, a.timeout)
     if a.stage in ('run', 'all'):
-        result = run_confirmation(a.out, config, backend, a.timeout)
+        result = run_confirmation(a.out, config, backend, a.timeout, a.jobs)
         if (result['missing'] or result['metric_errors'] or
                 result['status_counts'].get('other_failure')):
             raise RuntimeError('confirmatory campaign failed completeness checks')
