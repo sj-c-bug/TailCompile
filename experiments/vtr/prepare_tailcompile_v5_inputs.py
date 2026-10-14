@@ -109,20 +109,32 @@ def main():
             with rr_xml.open('rb') as src, gzip.open(rr_gz, 'wb') as dst:
                 shutil.copyfileobj(src, dst)
             rr_xml.unlink()
-        call([sys.executable, HERE / 'tailcompile_v2.py', '--design', design,
-              '--blif', blif, '--packed-net', packed, '--rr-graph', rr_gz,
-              '--out', ir, '--region-grid', '4x4'])
-        logic = json.loads((ir / 'logic_ir.json').read_text())
-        device = json.loads((ir / 'device_ir.json').read_text())
-        if logic['design'] != design or logic['packed_net_sha256'] != digest(packed):
+        logic_path, device_path = ir / 'logic_ir.json', ir / 'device_ir.json'
+        complete_ir = all(path.is_file() and path.stat().st_size
+                          for path in (logic_path, device_path))
+        any_ir = any(path.exists() for path in (logic_path, device_path))
+        if any_ir and not complete_ir:
+            raise RuntimeError(f'partial IR directory for {design}; preserve for diagnosis: {ir}')
+        if not complete_ir:
+            call([sys.executable, HERE / 'tailcompile_v2.py', '--design', design,
+                  '--blif', blif, '--packed-net', packed, '--rr-graph', rr_gz,
+                  '--out', ir, '--region-grid', '4x4'])
+        else:
+            print(json.dumps({'stage': 'reuse_ir', 'design': design,
+                              'directory': str(ir)}), flush=True)
+        logic = json.loads(logic_path.read_text())
+        device = json.loads(device_path.read_text())
+        if (logic['design'] != design or
+                logic['packed_net_sha256'] != digest(packed) or
+                logic['mapped_blif_sha256'] != digest(blif)):
             raise ValueError(f'IR provenance mismatch for {design}')
         records.append({
             'design': design,
             'family': design,
             'source_verilog': str(source.resolve()),
             'source_verilog_sha256': digest(source),
-            'logic_ir': str((ir / 'logic_ir.json').resolve()),
-            'device_ir': str((ir / 'device_ir.json').resolve()),
+            'logic_ir': str(logic_path.resolve()),
+            'device_ir': str(device_path.resolve()),
             'mapped_blif': str(blif.resolve()),
             'mapped_blif_normalized_sha256': normalized_blif_hash(blif),
             'packed_net': str(packed.resolve()),
