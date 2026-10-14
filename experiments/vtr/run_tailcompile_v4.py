@@ -58,6 +58,22 @@ class Backend:
                               check=True, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
 
+def classify_vpr_result(code, output):
+    """Classify fixed-width VPR outcomes without relying on one exit-code convention.
+
+    At the pinned server commit an explicitly unroutable route can be followed
+    by an analysis error (there is no complete route to analyze), changing the
+    final process exit code from the usual 2 to 1.  The explicit VPR diagnostic
+    remains authoritative; generic code-1 failures must still fail loudly.
+    """
+    if code == 0 and 'VPR succeeded' in output:
+        return 'success'
+    if (code in (1, 2) and
+            'Circuit is unroutable with a channel width factor' in output):
+        return 'unroutable'
+    return 'other_failure'
+
+
 def run_one(backend, directory, blif, packed_net, width, device_width, seed,
             fplace=None, write_rr=False, timeout=1200):
     directory = Path(directory).resolve()
@@ -106,9 +122,7 @@ def run_one(backend, directory, blif, packed_net, width, device_width, seed,
         except subprocess.TimeoutExpired:
             code = 124
     text = (directory / 'vpr.out').read_text(errors='replace')
-    status = ('success' if code == 0 and 'VPR succeeded' in text else
-              'unroutable' if code == 2 and 'Circuit is unroutable with a channel width factor' in text
-              else 'other_failure')
+    status = classify_vpr_result(code, text)
     result = {'schema': 'tailcompile-v4-run-v1', 'signature': signature,
               'vtr_commit': VTR_COMMIT, 'vpr_status': status, 'process_returncode': code,
               'seed': seed, 'route_chan_width': width, 'command': command,

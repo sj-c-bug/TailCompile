@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from tailcompile_v4_risk import (RiskEvaluator, build_supply, cvar,
                                  matched_scales_for, objective, search)
+from run_tailcompile_v4 import classify_vpr_result
 
 
 def fixture():
@@ -33,6 +34,15 @@ class RiskTest(unittest.TestCase):
         self.assertAlmostEqual(objective(state, scales, 'tail') - shared, 1.0)
         self.assertAlmostEqual(objective(state, scales, 'mean') - shared, 1.0)
         self.assertAlmostEqual(objective(state, scales, 'none'), shared)
+
+    def test_server_vtr_code_one_unroutable_is_not_other_failure(self):
+        message = ('Routing failed for sink 1\n'
+                   'Circuit is unroutable with a channel width factor of 20.\n'
+                   'Error 1: in get_num_bends_and_length: net #0 has no routing.')
+        self.assertEqual(classify_vpr_result(1, message), 'unroutable')
+        self.assertEqual(classify_vpr_result(2, message), 'unroutable')
+        self.assertEqual(classify_vpr_result(1, 'Error 1: unrelated failure'),
+                         'other_failure')
 
     def test_incremental_matches_full_and_capacity(self):
         args = fixture()
