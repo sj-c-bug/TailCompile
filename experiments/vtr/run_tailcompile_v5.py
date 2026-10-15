@@ -90,7 +90,8 @@ def prepare(root, config, backend, timeout):
             # no confirmatory VPR outcome exists before the strata are locked.
             provenance = run_one(backend, work / 'supply_run', blif, packed, width,
                                  int(record['device_width']), config['screen_seeds_excluded'][0],
-                                 write_rr=True, timeout=timeout)
+                                 write_rr=True, timeout=timeout,
+                                 full_legalizer=config['ap_full_legalizer'])
             if not supply_path.exists():
                 supply = build_supply(work / 'supply_run/device.rr_graph.xml', load(device_path))
                 if supply['channel_width'] != width:
@@ -184,6 +185,7 @@ def run_confirmation(root, config, backend, timeout, jobs=1):
                 for seed in config['confirm_seeds']:
                     directory = work / 'runs' / f'{method}_s{seed}'
                     spec = {'design': design, 'width': width, 'method': method, 'seed': seed,
+                            'ap_full_legalizer': config['ap_full_legalizer'],
                             'directory': directory.relative_to(root).as_posix(),
                             'inputs': inputs.relative_to(root).as_posix(),
                             'candidate': fplace.relative_to(root).as_posix() if fplace else None}
@@ -206,7 +208,8 @@ def run_confirmation(root, config, backend, timeout, jobs=1):
                        inputs / f'{spec["design"]}.net',
                        spec['width'], int(record['device_width']), spec['seed'],
                        root / spec['candidate'] if spec['candidate'] else None,
-                       timeout=timeout)
+                       timeout=timeout,
+                       full_legalizer=config['ap_full_legalizer'])
 
     with ThreadPoolExecutor(max_workers=jobs) as executor:
         # Consume the iterator so worker exceptions stop the campaign.
@@ -236,6 +239,8 @@ def main():
         raise ValueError('confirmatory config VTR commit mismatch')
     if tuple(config['methods']) != ALLOWED_METHODS:
         raise ValueError(f'method list must remain frozen as {ALLOWED_METHODS}')
+    if config.get('ap_full_legalizer') != 'appack':
+        raise ValueError('v5 confirmation requires the frozen appack full legalizer')
     a.out.mkdir(parents=True, exist_ok=True)
     archived = a.out / 'config.json'
     if archived.exists() and load(archived) != config:

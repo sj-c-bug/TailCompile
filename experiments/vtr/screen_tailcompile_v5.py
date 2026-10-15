@@ -51,7 +51,8 @@ def main():
         def execute(task):
             width, seed, directory = task
             result = run_one(backend, directory, blif, packed, width,
-                             int(record['device_width']), seed, timeout=a.timeout)
+                             int(record['device_width']), seed, timeout=a.timeout,
+                             full_legalizer='appack')
             return width, seed, directory, result['vpr_status']
 
         # executor.map preserves task order, so the frozen summary is
@@ -81,7 +82,7 @@ def main():
                          'screen_status': {str(w): by_width[w] for w in (low, high)}})
     screen = {'schema': 'tailcompile-v5-default-screen-v1', 'vtr_commit': VTR_COMMIT,
               'input_config_sha256': digest(a.inputs), 'screen_seeds': a.screen_seeds,
-              'parallel_jobs': a.jobs,
+              'parallel_jobs': a.jobs, 'ap_full_legalizer': 'appack',
               'rows': screen_rows, 'selected_design_count': len(selected), 'censored': censored}
     save(a.out / 'screen_summary.json', screen)
     if len(selected) < 3:
@@ -100,6 +101,7 @@ def main():
         'budget': 512,
         'search_seed': 2027,
         'risk_normalization': 'mean/initial_mean; cvar/initial_cvar',
+        'ap_full_legalizer': 'appack',
         'methods': ['default', 'det_base', 'det_mean', 'det_tail',
                     'gnn_base', 'gnn_mean', 'gnn_tail'],
         'designs': selected,

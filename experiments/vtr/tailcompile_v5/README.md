@@ -17,6 +17,7 @@
 - 确认 seeds：21–28，与筛选 seeds 不重叠
 - 每个设计：选择“最大的非全成功宽度”和“最小的全成功宽度”
 - 方法：Default、det-base、det-mean、det-tail、gnn-base、gnn-mean、gnn-tail
+- AP full legalizer：所有方法统一使用 `appack`；`flat-recon` 在 conv_layer 上会重建出超过器件 DSP 容量的 clusters
 - 搜索预算：512 次有效代理目标计算，搜索 seed 固定为 2027
 - 公平性：Mean 使用 `mean / initial_mean`，Tail 使用 `CVaR / initial_CVaR`；两者在同一初始解上的风险项幅度都为 1
 - GNN checkpoint、候选、RRG supply、配置和输入均记录 SHA-256；确认阶段不再训练或调参

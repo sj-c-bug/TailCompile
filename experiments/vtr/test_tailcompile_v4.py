@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from tailcompile_v4_risk import (RiskEvaluator, build_supply, cvar,
                                  matched_scales_for, objective, search)
-from run_tailcompile_v4 import classify_vpr_result
+from run_tailcompile_v4 import classify_vpr_result, run_one
 
 
 def fixture():
@@ -43,6 +43,12 @@ class RiskTest(unittest.TestCase):
         self.assertEqual(classify_vpr_result(2, message), 'unroutable')
         self.assertEqual(classify_vpr_result(1, 'Error 1: unrelated failure'),
                          'other_failure')
+
+    def test_unknown_full_legalizer_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'unsupported AP full legalizer'):
+            run_one(None, Path('unused-run'), Path('unused.blif'),
+                    Path('unused.net'), 20, 10, 1,
+                    full_legalizer='not-a-legalizer')
 
     def test_incremental_matches_full_and_capacity(self):
         args = fixture()

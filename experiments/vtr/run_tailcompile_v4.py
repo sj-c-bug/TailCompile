@@ -75,13 +75,17 @@ def classify_vpr_result(code, output):
 
 
 def run_one(backend, directory, blif, packed_net, width, device_width, seed,
-            fplace=None, write_rr=False, timeout=1200):
+            fplace=None, write_rr=False, timeout=1200,
+            full_legalizer='flat-recon'):
+    if full_legalizer not in ('flat-recon', 'appack'):
+        raise ValueError(f'unsupported AP full legalizer: {full_legalizer}')
     directory = Path(directory).resolve()
     signature = {'vtr_commit': VTR_COMMIT, 'vpr_binary_sha256': backend.binary_hash,
                  'architecture_sha256': backend.arch_hash, 'mapped_blif_sha256': digest(blif),
                  'input_packed_net_sha256': digest(packed_net),
                  'input_fplace_sha256': digest(fplace) if fplace else None,
                  'seed': seed, 'route_chan_width': width, 'device_width': device_width,
+                 'ap_full_legalizer': full_legalizer,
                  'write_rr': write_rr, 'timeout': timeout,
                  'runner_sha256': digest(Path(__file__))}
     manifest = directory / 'manifest.json'
@@ -98,7 +102,7 @@ def run_one(backend, directory, blif, packed_net, width, device_width, seed,
     packed_copy = directory / 'input.net'
     shutil.copy2(packed_net, packed_copy)
     command = [backend.binary, backend.arch, str(blif), '--analytical_place', '--route', '--analysis',
-               '--ap_full_legalizer', 'flat-recon', '--ap_detailed_placer', 'annealer',
+               '--ap_full_legalizer', full_legalizer, '--ap_detailed_placer', 'annealer',
                '--seed', str(seed), '--route_chan_width', str(width), '--device_width', str(device_width),
                '--net_file', str(packed_copy), '--flat_place_verbosity', '1',
                '--write_flat_place', str(directory / 'post_route.fplace'),
