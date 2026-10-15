@@ -14,7 +14,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from run_tailcompile_v4 import Backend, run_one, summarize
+from run_tailcompile_v4 import Backend, summarize
+from v5_vpr_retry import run_one
 from tailcompile_v4 import build, load
 from tailcompile_v4_risk import VTR_COMMIT, build_supply, digest, save
 

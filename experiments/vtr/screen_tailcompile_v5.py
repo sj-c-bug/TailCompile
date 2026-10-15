@@ -8,7 +8,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from run_tailcompile_v4 import Backend, run_one
+from run_tailcompile_v4 import Backend
+from v5_vpr_retry import run_one
 from tailcompile_v4 import load
 from tailcompile_v4_risk import VTR_COMMIT, digest, save
 

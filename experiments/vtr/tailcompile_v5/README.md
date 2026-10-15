@@ -1,5 +1,7 @@
 # TailCompile v5：按布线异质性分层的 2D 独立验证
 
+超时恢复：v5 的筛选、supply 和确认任务首次使用原来的超时预算；只有返回码 124 的任务自动归档至同级 `_timeout_history/`，然后以 `TAILCOMPILE_VPR_RETRY_TIMEOUT`（默认 7200 秒）从头重试。已完成的 success/unroutable 任务按原签名验证复用。延长预算后再次超时会停止，不能将超时作为不可布线标签。归档中的 manifest 属于历史尝试，统计当前结果时应排除 `_timeout_history`。
+
 ## 目标
 
 这一阶段不检验“TailRisk 是否对所有设计都更好”，而检验一个更准确、可证伪的条件性假设：
