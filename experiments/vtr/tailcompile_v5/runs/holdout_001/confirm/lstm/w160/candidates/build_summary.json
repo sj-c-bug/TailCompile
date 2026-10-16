@@ -1,0 +1,245 @@
+{
+  "schema": "tailcompile-v4-build-v1",
+  "design": "lstm",
+  "channel_width": 160,
+  "inputs": {
+    "logic": "1bcb079bd673c71ac78bb03f543690c1d61cb2aaa0ecb0081eaab9819130cbc8",
+    "device": "8300fb7b50ab405985a4a65d77f0de162bb0c49e4668a2965d74a6ae406b1179",
+    "blif": "54a8eebfe0ddc9106e3eada4b08b4f6956be8f8fbf512471dc456ea186fa1f57",
+    "supply": "413decff0e6b2c08c9dd9ebf3f8ec57947edca214ace1a633a229acc894fbef7",
+    "deterministic_start": "04c9d224224f8af5c2004fd872cf1a7fef02c9555c448c36765df4a385e9181b",
+    "gnn_start": "e9e56f218d606647ba3af13fa2c636aa6a03bb3ccdc03ca8fb8772586c15ff44",
+    "budget": 512,
+    "search_seed": 2027,
+    "risk_normalization": "matched_initial",
+    "candidate_methods": [
+      "base",
+      "mean",
+      "tail"
+    ],
+    "implementation": "781145f5f79d5bc240a779a7662e22e714db51c814dd57887dc9a5801fb49cb9",
+    "risk_implementation": "a1f672b1dd5d651ff277568bf47970712f59418c71c68a1b9e7f976a70d76548"
+  },
+  "parser_audit": {
+    "top_model": "top",
+    "model_count": 4,
+    "primitive_count": 183140,
+    "primitive_kinds": {
+      "bram": 12096,
+      "dsp": 655,
+      "ff": 53526,
+      "io_in": 2658,
+      "io_out": 19,
+      "lut": 77921,
+      "other": 36265
+    }
+  },
+  "edge_audit": {
+    "excluded_clock_nets": [
+      "clk"
+    ],
+    "excluded_constant_names": [
+      "$false",
+      "$true",
+      "0",
+      "1",
+      "gnd",
+      "open",
+      "unconn",
+      "vcc"
+    ],
+    "connected_hyperedges": 224265,
+    "unit_delay_max_path_depth": 40,
+    "combinational_cycle_nodes": 0,
+    "multi_driver_net_count": 0,
+    "undriven_net_count": 0,
+    "high_fanout_over_64_count": 49
+  },
+  "demand_policy": "one unit per net per shared wire pool; fanout paths unioned; clocks/constants excluded by tailrisk_core",
+  "driverless_net_count": 3,
+  "timing_policy": "existing pre-placement unit-delay depth proxy; not STA/CPD",
+  "normalization_reference": "each initializer: mean/initial_mean and cvar/initial_cvar",
+  "search_seconds_total": 106.69313906505704,
+  "candidates": [
+    {
+      "method": "det_base",
+      "fplace": "det_base.fplace",
+      "fplace_sha256": "6d0c0bb68388a1e5b5da781beb5ea9e1be04cd061115ae88ae1fd6d792f2aa70",
+      "search": "det_base_search.json",
+      "binding": "det_base_binding.json",
+      "lowering": "det_base_lowering.json",
+      "evaluations": 0,
+      "accepted": 0,
+      "search_seconds": 0.10295385681092739,
+      "lowering_seconds": 1.2673400938510895,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.9052698275837132,
+        "mean": 0.5458463336431758,
+        "max": 1.2860090796533727,
+        "wire": 2306792.0,
+        "timing": 301258.7499999879,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.9052698275837132,
+        "mean": 0.5458463336431758,
+        "max": 1.2860090796533727,
+        "wire": 2306792.0,
+        "timing": 301258.7499999879,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "det_mean",
+      "fplace": "det_mean.fplace",
+      "fplace_sha256": "133b7fe7930b1d5affd42f6b71dece0af4be00d741ea6cbc21e97ba3ff103b12",
+      "search": "det_mean_search.json",
+      "binding": "det_mean_binding.json",
+      "lowering": "det_mean_lowering.json",
+      "evaluations": 512,
+      "accepted": 30,
+      "search_seconds": 8.735606119967997,
+      "lowering_seconds": 1.267781175673008,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.9052698275837132,
+        "mean": 0.5458463336431758,
+        "max": 1.2860090796533727,
+        "wire": 2306792.0,
+        "timing": 301258.7499999879,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.8762802824165924,
+        "mean": 0.5381603258136128,
+        "max": 1.2059430458110245,
+        "wire": 2273804.0,
+        "timing": 294237.71249999583,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "det_tail",
+      "fplace": "det_tail.fplace",
+      "fplace_sha256": "6cc098213fc047171170723bfb2200b9d593bce0eaed00eaa5f5a9d2d22cfbb4",
+      "search": "det_tail_search.json",
+      "binding": "det_tail_binding.json",
+      "lowering": "det_tail_lowering.json",
+      "evaluations": 512,
+      "accepted": 81,
+      "search_seconds": 14.72541755437851,
+      "lowering_seconds": 1.278473966754973,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.9052698275837132,
+        "mean": 0.5458463336431758,
+        "max": 1.2860090796533727,
+        "wire": 2306792.0,
+        "timing": 301258.7499999879,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 0.823827917929948,
+        "mean": 0.560067095974981,
+        "max": 1.1494015683037992,
+        "wire": 2365734.0,
+        "timing": 303170.7124999886,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "gnn_base",
+      "fplace": "gnn_base.fplace",
+      "fplace_sha256": "f379c16466eda15da1d58aaffdee4f6329b83021e857c88decbcf85322fc0597",
+      "search": "gnn_base_search.json",
+      "binding": "gnn_base_binding.json",
+      "lowering": "gnn_base_lowering.json",
+      "evaluations": 0,
+      "accepted": 0,
+      "search_seconds": 0.13340455573052168,
+      "lowering_seconds": 1.296458818949759,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 3.0718872392897523,
+        "mean": 2.187427989181875,
+        "max": 4.37150127226529,
+        "wire": 9259160.5,
+        "timing": 1811865.4000001377,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 3.0718872392897523,
+        "mean": 2.187427989181875,
+        "max": 4.37150127226529,
+        "wire": 9259160.5,
+        "timing": 1811865.4000001377,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "gnn_mean",
+      "fplace": "gnn_mean.fplace",
+      "fplace_sha256": "4a0e5f0c462d9bfe573a3638f282eff741477d511ca7a060fc88e2772cb833c5",
+      "search": "gnn_mean_search.json",
+      "binding": "gnn_mean_binding.json",
+      "lowering": "gnn_mean_lowering.json",
+      "evaluations": 512,
+      "accepted": 211,
+      "search_seconds": 34.07047423534095,
+      "lowering_seconds": 1.2912936182692647,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 3.0718872392897523,
+        "mean": 2.187427989181875,
+        "max": 4.37150127226529,
+        "wire": 9259160.5,
+        "timing": 1811865.4000001377,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 2.880033591658996,
+        "mean": 2.103105063535828,
+        "max": 3.9652247667520606,
+        "wire": 8900088.5,
+        "timing": 1727548.4500001292,
+        "tail_fraction": 0.25
+      }
+    },
+    {
+      "method": "gnn_tail",
+      "fplace": "gnn_tail.fplace",
+      "fplace_sha256": "90f94044703a702b055acf2d037bea7a7d161f97b3e6145bfa776b9680e101f9",
+      "search": "gnn_tail_search.json",
+      "binding": "gnn_tail_binding.json",
+      "lowering": "gnn_tail_lowering.json",
+      "evaluations": 512,
+      "accepted": 241,
+      "search_seconds": 39.05397963989526,
+      "lowering_seconds": 1.3068224834278226,
+      "initial_proxy": {
+        "proxy_feasible": true,
+        "cvar": 3.0718872392897523,
+        "mean": 2.187427989181875,
+        "max": 4.37150127226529,
+        "wire": 9259160.5,
+        "timing": 1811865.4000001377,
+        "tail_fraction": 0.25
+      },
+      "final_proxy": {
+        "proxy_feasible": true,
+        "cvar": 2.8559757766372993,
+        "mean": 2.1224714566160823,
+        "max": 3.7463952502125757,
+        "wire": 8980477.5,
+        "timing": 1745022.2000001853,
+        "tail_fraction": 0.25
+      }
+    }
+  ]
+}
