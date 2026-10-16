@@ -138,6 +138,19 @@ def model_data(row, graph_cache, use_tailrisk, device):
     return move_graph(apply_tailrisk_ablation(data, use_tailrisk), device)
 
 
+def report_record(row, probability, prediction, hotspot):
+    """Strip tensors and graph-cache keys before writing the audit report."""
+    return {
+        'design': row['design'], 'width': int(row['width']),
+        'method': row['method'], 'route': float(row['route']),
+        'qor': [None if value is None else float(value) for value in row['qor']],
+        'hotspot': row['hotspot'],
+        'predicted_route': float(probability),
+        'predicted_qor': [float(value) for value in prediction],
+        'predicted_hotspot': [float(value) for value in hotspot],
+    }
+
+
 def evaluate(model, rows, graph_cache, norms, mode, use_tailrisk, device):
     records = []
     model.eval()
@@ -148,9 +161,8 @@ def evaluate(model, rows, graph_cache, norms, mode, use_tailrisk, device):
             prediction = []
             for value, (mean, std) in zip(output['qor'].tolist(), norms):
                 prediction.append(math.expm1(value * std + mean))
-            records.append({**row, 'predicted_route': probability,
-                            'predicted_qor': prediction,
-                            'predicted_hotspot': output['hotspot'].tolist()})
+            records.append(report_record(
+                row, probability, prediction, output['hotspot'].tolist()))
     labels = [row['route'] for row in records]
     probabilities = [row['predicted_route'] for row in records]
     groups = defaultdict(list)
@@ -223,6 +235,23 @@ def train_fold(train_rows, test_rows, graph_cache, mode, use_tailrisk, args, dev
         model, test_rows, graph_cache, norms, mode, use_tailrisk, device)
 
 
+def load_fold(checkpoint, train_rows, test_rows, graph_cache, mode, use_tailrisk,
+              args, device):
+    """Resume the final report from a completed fold without retraining it."""
+    saved = torch.load(checkpoint, map_location=device, weights_only=False)
+    if (saved.get('mode') != mode or
+            bool(saved.get('use_tailrisk')) != bool(use_tailrisk) or
+            saved.get('heldout_design') != test_rows[0]['design']):
+        raise ValueError(f'checkpoint identity mismatch: {checkpoint}')
+    sample = graph_cache[train_rows[0]['graph_key']]
+    model = RoutabilityGNN(sample['cluster_x'].shape[1], sample['region_x'].shape[1],
+                           args.hidden).to(device)
+    model.load_state_dict(saved['model'])
+    norms = saved['qor_normalization']
+    metrics = evaluate(model, test_rows, graph_cache, norms, mode, use_tailrisk, device)
+    return model, norms, [{'reused_checkpoint': True}], metrics
+
+
 def mean_metric(folds, key):
     values = [fold['metrics'][key] for fold in folds if fold['metrics'][key] is not None]
     return statistics.mean(values) if values else None
@@ -245,15 +274,22 @@ def train(dataset_path, out, args):
         for heldout in designs:
             train_rows = [row for row in examples if row['design'] != heldout]
             test_rows = [row for row in examples if row['design'] == heldout]
-            model, norms, trace, metrics = train_fold(
-                train_rows, test_rows, graph_cache, mode, use_tailrisk, args, device)
             checkpoint = out / f'{name}_holdout_{heldout}.pt'
-            torch.save({'model': model.state_dict(), 'mode': mode,
-                        'use_tailrisk': use_tailrisk, 'qor_normalization': norms,
-                        'heldout_design': heldout}, checkpoint)
+            if checkpoint.is_file() and not args.force_retrain:
+                model, norms, trace, metrics = load_fold(
+                    checkpoint, train_rows, test_rows, graph_cache,
+                    mode, use_tailrisk, args, device)
+                stage = 'fold_reused'
+            else:
+                model, norms, trace, metrics = train_fold(
+                    train_rows, test_rows, graph_cache, mode, use_tailrisk, args, device)
+                torch.save({'model': model.state_dict(), 'mode': mode,
+                            'use_tailrisk': use_tailrisk, 'qor_normalization': norms,
+                            'heldout_design': heldout}, checkpoint)
+                stage = 'fold_complete'
             folds.append({'heldout_design': heldout, 'trace': trace, 'metrics': metrics,
                           'checkpoint': checkpoint.name})
-            print(json.dumps({'stage': 'fold_complete', 'variant': name,
+            print(json.dumps({'stage': stage, 'variant': name,
                               'heldout': heldout, 'metrics': {k: v for k, v in metrics.items()
                                                              if k != 'records'}}), flush=True)
         report['variants'][name] = {
@@ -304,6 +340,8 @@ def main():
     parser.add_argument('--accumulate', type=int, default=8)
     parser.add_argument('--seed', type=int, default=2027)
     parser.add_argument('--device', default='auto')
+    parser.add_argument('--force-retrain', action='store_true',
+                        help='ignore compatible existing fold checkpoints')
     args = parser.parse_args()
     report = train(args.dataset, args.out, args)
     print(json.dumps({'stage': 'v6_training_complete', 'decision': report['decision']},

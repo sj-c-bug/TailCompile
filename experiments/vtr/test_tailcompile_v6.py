@@ -1,11 +1,15 @@
 import os
+import json
+import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 
 os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
 import torch
 
 from tailcompile_v6 import RoutabilityGNN, apply_tailrisk_ablation, gini, release_mask
-from train_tailcompile_v6 import auc, spearman
+from train_tailcompile_v6 import auc, load_fold, report_record, spearman
 
 
 def graph():
@@ -62,6 +66,33 @@ class V6Test(unittest.TestCase):
         mask = release_mask(torch.tensor([5.0, 4.0, 3.0, -5.0]),
                             threshold=0.70, max_fraction=0.25)
         self.assertEqual(mask.tolist(), [True, False, False, False])
+
+    def test_report_record_excludes_tensors(self):
+        row = {'design': 'd', 'width': 80, 'method': 'm', 'route': 0.5,
+               'qor': [1, None, 2.0, 3], 'hotspot': [0.1],
+               'assignment': torch.tensor([0]),
+               'spatial_region_x': torch.zeros(1, 7)}
+        record = report_record(row, 0.6, [1, 2, 3, 4], [0.2])
+        json.dumps(record, allow_nan=False)
+        self.assertNotIn('assignment', record)
+
+    def test_completed_fold_can_be_reused(self):
+        data = graph()
+        row = {'design': 'heldout', 'width': 80, 'method': 'm', 'route': 1.0,
+               'qor': [1.0, 1.0, 1.0, 1.0], 'hotspot': [0.1] * 4,
+               'assignment': data['assignment'], 'spatial_region_x': data['spatial_region_x'],
+               'spatial_global_x': data['spatial_global_x'], 'graph_key': ('d', 80)}
+        model = RoutabilityGNN(8, 13, hidden=12)
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / 'fold.pt'
+            torch.save({'model': model.state_dict(), 'mode': 'placement',
+                        'use_tailrisk': True, 'qor_normalization': [(0.0, 1.0)] * 4,
+                        'heldout_design': 'heldout'}, checkpoint)
+            _, _, trace, metrics = load_fold(
+                checkpoint, [row], [row], {('d', 80): data}, 'placement', True,
+                SimpleNamespace(hidden=12), torch.device('cpu'))
+        self.assertTrue(trace[0]['reused_checkpoint'])
+        json.dumps(metrics, allow_nan=False)
 
 
 if __name__ == '__main__':

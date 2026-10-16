@@ -82,3 +82,5 @@ PY
 ```
 
 六个设计时，每个 variant 应有 6 个 held-out folds；最终结论以 `decision` 为准，而不是训练 loss。
+
+若训练已完成但最终报告写入失败，直接重新执行同一条 pipeline。训练器默认核对并复用已有的 fold checkpoint，只重新评估和生成报告；只有显式加入 `--force-retrain` 才会重训。
