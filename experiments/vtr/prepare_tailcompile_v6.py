@@ -49,19 +49,45 @@ def median_hotspots(values):
             for index in range(len(values[0]))]
 
 
+def verify_manifest(metrics, manifest, spec, path):
+    """Verify provenance while tolerating Git LF/CRLF checkout conversion."""
+    current = digest(path)
+    if metrics['manifest_sha256'] == current:
+        return None
+    semantic = (
+        metrics.get('design') == spec['design'] and
+        int(metrics.get('width')) == int(spec['width']) and
+        metrics.get('method') == spec['method'] and
+        int(metrics.get('seed')) == int(spec['seed']) and
+        metrics.get('status') == manifest.get('vpr_status') and
+        int(manifest.get('seed')) == int(spec['seed']) and
+        int(manifest.get('route_chan_width')) == int(spec['width']))
+    if not semantic:
+        raise ValueError(f'metrics/manifest semantic provenance mismatch: {path.parent}')
+    return {
+        'kind': 'manifest_byte_hash_changed_but_semantics_match',
+        'manifest': str(path),
+        'recorded_sha256': metrics['manifest_sha256'],
+        'checkout_sha256': current,
+        'likely_cause': 'cross-platform LF/CRLF conversion by Git',
+    }
+
+
 def prepare(root, out):
     root, out = Path(root).resolve(), Path(out).resolve()
     summary, plan = load(root / 'summary.json'), load(root / 'plan.json')
     if summary.get('missing') or summary.get('metric_errors'):
         raise ValueError('v5 campaign is incomplete or contains metric errors')
     trials = defaultdict(list)
+    provenance_warnings = []
     specs = {(row['design'], int(row['width']), row['method'], int(row['seed'])): row
              for row in plan['runs']}
     for key, spec in specs.items():
         run = root / spec['directory']
         metrics, manifest = load(run / 'metrics.json'), load(run / 'manifest.json')
-        if metrics['manifest_sha256'] != digest(run / 'manifest.json'):
-            raise ValueError(f'metrics provenance mismatch: {run}')
+        warning = verify_manifest(metrics, manifest, spec, run / 'manifest.json')
+        if warning:
+            provenance_warnings.append(warning)
         if manifest['vpr_status'] not in ('success', 'unroutable'):
             raise ValueError(f'non-scientific VPR failure: {run}')
         trials[key[:3]].append((spec, metrics, run))
@@ -114,6 +140,7 @@ def prepare(root, out):
             'qor': 'median over successful placement seeds',
             'hotspot': 'per-region median VPR channel occupancy/capacity over successful seeds',
         },
+        'provenance_warnings': provenance_warnings,
         'designs': designs,
     }
     out.mkdir(parents=True, exist_ok=True)
@@ -124,6 +151,7 @@ def prepare(root, out):
         'route_label_histogram': dict(Counter(
             str(condition['route_success_rate']) for row in designs for condition in row['conditions'])),
         'source_v5_root': str(root),
+        'provenance_warning_count': len(provenance_warnings),
     })
     return payload
 

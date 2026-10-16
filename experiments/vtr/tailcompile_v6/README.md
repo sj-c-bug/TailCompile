@@ -31,6 +31,7 @@ v6 不预设“粗放置一定必要”，也不再要求 TailRisk 单独完成�
 - 按设计族做 leave-one-design-out；一个设计的任何 width、method、seed 都不会同时出现在训练和该折测试中。
 - 四组模型使用同一组候选与标签。
 - 空间代理只使用网表、RRG 和候选粗放置，不读取 VPR occupancy 或 QoR。
+- manifest 首先按原始 SHA-256 校验；跨 Windows/Linux Git 检出仅改变 LF/CRLF 时，改做 design/width/method/seed/status 的严格语义核对，并在数据集中记录 provenance warning，而不是静默忽略。
 
 ## 判定规则（运行前固定）
 

@@ -9,6 +9,7 @@ os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
 import torch
 
 from tailcompile_v6 import RoutabilityGNN, apply_tailrisk_ablation, gini, release_mask
+from prepare_tailcompile_v6 import verify_manifest
 from train_tailcompile_v6 import auc, load_fold, report_record, spearman
 
 
@@ -93,6 +94,20 @@ class V6Test(unittest.TestCase):
                 SimpleNamespace(hidden=12), torch.device('cpu'))
         self.assertTrue(trace[0]['reused_checkpoint'])
         json.dumps(metrics, allow_nan=False)
+
+    def test_manifest_line_ending_change_requires_semantic_match(self):
+        spec = {'design': 'd', 'width': 80, 'method': 'm', 'seed': 11}
+        manifest = {'vpr_status': 'success', 'route_chan_width': 80, 'seed': 11}
+        metrics = {**spec, 'status': 'success', 'manifest_sha256': 'server-hash'}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'manifest.json'
+            path.write_text(json.dumps(manifest) + '\r\n')
+            warning = verify_manifest(metrics, manifest, spec, path)
+            self.assertEqual(warning['kind'],
+                             'manifest_byte_hash_changed_but_semantics_match')
+            metrics['method'] = 'tampered'
+            with self.assertRaises(ValueError):
+                verify_manifest(metrics, manifest, spec, path)
 
 
 if __name__ == '__main__':
