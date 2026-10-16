@@ -40,12 +40,12 @@ def load(path):
     return json.loads(Path(path).read_text(encoding='utf-8'))
 
 
-def ranks(values):
+def ranks(values, tolerance=1e-5):
     order = sorted(range(len(values)), key=lambda i: values[i])
     result, cursor = [0.0] * len(values), 0
     while cursor < len(order):
         end = cursor + 1
-        while end < len(order) and values[order[end]] == values[order[cursor]]:
+        while end < len(order) and abs(values[order[end]] - values[order[cursor]]) <= tolerance:
             end += 1
         rank = (cursor + end - 1) / 2
         for index in order[cursor:end]:
@@ -169,7 +169,7 @@ def evaluate(model, rows, graph_cache, norms, mode, use_tailrisk, device):
     for row in records:
         groups[row['design'], row['width']].append(row)
     correlations = []
-    for values in groups.values():
+    for values in (groups.values() if mode != 'early' else []):
         observed = [row['route'] - (0.05 * math.log1p(row['qor'][0])
                     if row['qor'][0] is not None else 0.0) for row in values]
         predicted = [row['predicted_route'] - 0.05 * math.log1p(
@@ -304,19 +304,18 @@ def train(dataset_path, out, args):
     placed = report['variants']['placement_with_tail']
     relative_brier = ((early['mean_heldout_brier'] - placed['mean_heldout_brier']) /
                       max(early['mean_heldout_brier'], 1e-12))
-    rank_gain = ((placed['mean_candidate_rank_spearman'] or 0.0) -
-                 (early['mean_candidate_rank_spearman'] or 0.0))
+    # Early inputs are identical across candidates; its ranking is undefined.
+    # Do not turn an undefined metric into zero to create a fictitious gain.
+    rank_gain = None
     report['decision'] = {
         'relative_brier_improvement_from_placement': relative_brier,
         'candidate_rank_spearman_gain_from_placement': rank_gain,
         'early_prediction_is_poor': bool(early['mean_heldout_brier'] >= 0.20 or
                                          (early['mean_heldout_auc'] or 0.0) <= 0.60),
         'coarse_placement_is_worth_latency': bool(
-            relative_brier >= 0.10 or
-            (rank_gain >= 0.15 and (placed['mean_candidate_rank_spearman'] or 0.0) >= 0.30)),
-        'preregistered_rule': ('accept coarse-placement latency if held-out Brier improves by >=10%, '
-                               'or candidate ranking Spearman improves by >=0.15 and reaches >=0.30; '
-                               'flag early mode poor at Brier>=0.20 or AUC<=0.60'),
+            relative_brier >= 0.10),
+        'corrected_rule': ('Brier relative improvement >=10%; the original early-relative '
+                           'candidate-rank gate is not evaluable because early ranking is undefined'),
         'tailrisk_increment_early_brier': (report['variants']['early_no_tail']['mean_heldout_brier'] -
                                            early['mean_heldout_brier']),
         'tailrisk_increment_placement_brier': (
