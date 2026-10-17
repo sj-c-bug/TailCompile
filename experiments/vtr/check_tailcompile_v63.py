@@ -24,7 +24,8 @@ def check(root):
         model_checkpoints=len(list((root / 'models').glob('target_*_member*.pt'))),
         selection_count=len(selection['selections']) if selection else 0,
         evaluation_trials=len(evaluation['rows']) if evaluation else 0)
-    result['probe_ready'] = bool(probe and probe.get('complete') and result['probe_trials'] == 6)
+    result['probe_ready'] = bool(probe and probe.get('complete') and result['probe_trials'] == 50 and
+                                 len(probe.get('comparisons', [])) == 30)
     result['prepare_ready'] = bool(pool and labels and labels.get('complete') and data and
         result['pool_candidates'] == 168 and result['label_trials'] == 504 and
         result['training_examples'] == 168)

@@ -31,6 +31,7 @@ EVAL_SEEDS = (71, 72, 73)
 PROBE = (('conv_layer', 120, 'swap02_r0'),
          ('conv_layer', 120, 'swap02_r1'),
          ('eltwise_layer', 120, 'swap05_r0'))
+PROBE_SEEDS = tuple(range(61, 71))
 
 
 def conditions(rows):
@@ -79,25 +80,48 @@ def probe(args):
         raise ValueError('v6.2 pilot must have all 24 baseline trials')
     index = {(r['design'], r['width'], r['candidate']): r for r in old_pool}
     tasks = []
+    contexts = sorted({(design, width) for design, width, _ in PROBE})
+    baseline_prior = [r for r in prior['rows']
+                      if (r['design'], r['width']) in contexts and
+                      r['candidate'] == 'gnn_base' and r['seed'] in PROBE_SEEDS]
+    if len(baseline_prior) != len(contexts) * 2:
+        raise ValueError('expected paired v6.2 gnn_base results on seeds 61/62')
+    for design, width in contexts:
+        item = index[design, width, 'noop']
+        for seed in PROBE_SEEDS:
+            if seed in (61, 62):
+                continue
+            tasks.append(dict(**{k: item[k] for k in ('design', 'width', 'inputs', 'device_width',
+                               'full_legalizer', 'fplace')}, candidate='gnn_base', seed=seed,
+                directory=str(args.out / design / f'w{width}' / 'gnn_base' / f's{seed}')))
     for key in PROBE:
         item = index[key]
-        for seed in (61, 62):
+        for seed in PROBE_SEEDS:
             tasks.append(dict(**{k: item[k] for k in ('design', 'width', 'inputs', 'device_width',
                                'full_legalizer', 'fplace')}, candidate=item['candidate'], seed=seed,
                 directory=str(args.out / item['design'] / f'w{item["width"]}' /
                               item['candidate'] / f's{seed}')))
+    if len(tasks) != 46:
+        raise AssertionError('probe schedule must contain 16 new baselines and 30 interventions')
     args.out.mkdir(parents=True, exist_ok=True)
     new_rows = v62.parallel_trials(tasks, args.jobs, args.timeout, args.out, 'probe.partial.json')
     comparisons = []
-    baseline = {(r['design'], r['width'], r['seed'], r['candidate']): r for r in prior['rows']}
+    all_rows = sorted(baseline_prior + new_rows,
+        key=lambda r: (r['design'], r['width'], r['candidate'], r['seed']))
+    baseline = {(r['design'], r['width'], r['seed'], r['candidate']): r for r in all_rows}
     for row in new_rows:
+        if row['candidate'] == 'gnn_base':
+            continue
         ref = baseline[row['design'], row['width'], row['seed'], 'gnn_base']
         comparisons.append(dict(design=row['design'], width=row['width'], candidate=row['candidate'],
             seed=row['seed'], candidate_status=row['status'], baseline_status=ref['status'],
             success_delta=int(row['status'] == 'success') - int(ref['status'] == 'success'),
             candidate_metrics={k: row.get(k) for k in ('region_p99', 'channel_p99', 'wirelength', 'final_cpd_ns')},
             baseline_metrics={k: ref.get(k) for k in ('region_p99', 'channel_p99', 'wirelength', 'final_cpd_ns')}))
-    save(args.out / 'probe_report.json', dict(schema=SCHEMA, complete=True, rows=new_rows,
+    if len(all_rows) != 50 or len(comparisons) != 30:
+        raise AssertionError('probe results have incomplete paired seed coverage')
+    save(args.out / 'probe_report.json', dict(schema=SCHEMA, complete=True, rows=all_rows,
+        new_trials=len(new_rows), reused_baseline_trials=len(baseline_prior),
         comparisons=comparisons, net_success_gain=sum(r['success_delta'] for r in comparisons)))
 
 

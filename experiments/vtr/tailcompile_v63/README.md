@@ -2,8 +2,10 @@
 
 This experiment follows the v6.2 pilot. It has two independent goals:
 
-1. Re-test three promising swaps on fresh seeds 61/62 against the already recorded
-   `gnn_base` runs. This requires six new VPR runs and does not alter the old pilot.
+1. Re-test three promising swaps on seeds 61–70 against paired `gnn_base` runs.
+   The baseline results for 61/62 already exist; the probe adds 46 VPR runs.
+   Two earlier successes of `gnn_base` on `conv_layer/w120` could not reveal a
+   route rescue, so the broader seed set checks success frequency and QoR.
 2. Train a placement chooser with considerably more labels. The input remains the
    six v6.1 design families, two widths per family. Each condition has Default
    (unbound VPR placement), `gnn_base`/`noop`, and four distinct interventions at
@@ -30,7 +32,7 @@ export TAILCOMPILE_V63_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v63/ru
 export TAILCOMPILE_V63_JOBS=4
 ```
 
-CPU instance, candidate probe (six VPR runs):
+CPU instance, candidate probe (46 new VPR runs, 50 total including reused baselines):
 
 ```bash
 bash experiments/vtr/tailcompile_v63/run_pipeline.sh probe
@@ -65,7 +67,7 @@ Check status any time:
 bash experiments/vtr/tailcompile_v63/run_pipeline.sh status
 ```
 
-Expected counts: probe 6, pool 168, labels 504, examples 168, checkpoints 18,
+Expected counts: probe 50, pool 168, labels 504, examples 168, checkpoints 18,
 selections 12, final evaluation 108. The final comparison is against both Default
 and `gnn_base`; it reports routability first and QoR on jointly successful runs.
 There is no automatic improvement gate that discards an unfavorable result.
