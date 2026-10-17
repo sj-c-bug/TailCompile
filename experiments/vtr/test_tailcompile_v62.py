@@ -2,10 +2,23 @@ import os
 os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
 import math
 import unittest
-from run_tailcompile_v62 import conservative_audit, compare
+import torch
+from run_tailcompile_v62 import conservative_audit, compare, evaluate_interventions
 
 
 class V62Test(unittest.TestCase):
+    def test_heldout_evaluation_uses_noop_baseline(self):
+        class Model(torch.nn.Module):
+            def forward(self, graph):
+                return {'score': graph['score']}
+        rows = [dict(design='d', width=80, method='noop', route=0., qor=[None] * 4,
+                     graph={'score': torch.tensor(0.)}),
+                dict(design='d', width=80, method='swap01_r0', route=1., qor=[1.] * 4,
+                     graph={'score': torch.tensor(1.)})]
+        report = evaluate_interventions(Model(), rows, torch.device('cpu'))
+        self.assertEqual(report['selections'][0]['chosen'], 'swap01_r0')
+        self.assertEqual(report['selections'][0]['baseline_route'], 0.)
+
     def test_conservative_policy_accepts_unanimous_safe_gain(self):
         zero = [dict(score=1., route=.5, qor=[0., 0., 4., 2.]) for _ in range(3)]
         good = [dict(score=1.1, route=.51, qor=[0., 0., 3.99, 1.99]) for _ in range(3)]

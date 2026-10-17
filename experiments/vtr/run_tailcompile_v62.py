@@ -25,10 +25,10 @@ from tailcompile_v2 import contract_edges
 from tailcompile_v3 import lower_fplace
 from tailcompile_v4_risk import RiskEvaluator, digest, region_at, save
 from tailcompile_v61 import (HierarchicalMatcher, candidate_graph, static_graph,
-                             swap_proposal, to_device)
+                             preference, swap_proposal, to_device)
 from tailrisk_core import parse_blif
 from train_tailcompile_v6 import normalization
-from train_tailcompile_v61 import evaluate, group_loss, grouped
+from train_tailcompile_v61 import group_loss, grouped
 from v5_vpr_retry import run_one
 
 
@@ -229,6 +229,34 @@ def dataset(args):
         bundle_sha256=digest(args.out / 'bundle.pt')))
 
 
+def evaluate_interventions(model, rows, device):
+    """Evaluate held-out swap candidates against the v6.2 no-op baseline."""
+    records, selections, correct, pairs = [], [], 0., 0
+    model.eval()
+    with torch.no_grad():
+        for group in grouped(rows):
+            scores = [model(to_device(row['graph'], device))['score'].item() for row in group]
+            chosen = max(range(len(group)), key=lambda i: (round(scores[i], 5), group[i]['method']))
+            for i, row in enumerate(group):
+                records.append(dict(design=row['design'], width=row['width'], method=row['method'],
+                                    score=scores[i], route=row['route'], qor=row['qor']))
+                for j in range(i + 1, len(group)):
+                    sign = preference(row, group[j])
+                    if sign:
+                        difference = scores[i] - scores[j]
+                        correct += 0.5 if abs(difference) <= 1e-5 else float(sign * difference > 0)
+                        pairs += 1
+            selected = group[chosen]
+            baseline = next((row for row in group if row['method'] == 'noop'), None)
+            if baseline is None:
+                raise ValueError('v6.2 held-out group lacks noop candidate')
+            selections.append(dict(design=selected['design'], width=selected['width'],
+                chosen=selected['method'], chosen_route=selected['route'], baseline_route=baseline['route'],
+                chosen_qor=selected['qor'], baseline_qor=baseline['qor']))
+    return dict(pair_accuracy=correct / pairs if pairs else None, pair_count=pairs,
+                selections=selections, records=records)
+
+
 def train(args):
     bundle = torch.load(args.bundle, map_location='cpu', weights_only=True)
     rows, targets = bundle['examples'], sorted({d for d, _ in bundle['contexts']})
@@ -273,7 +301,7 @@ def train(args):
                     training_designs=signature['training_designs'], state=model.state_dict(),
                     normalization=norms, hidden=args.hidden, seed=seed, trace=trace), checkpoint)
             members.append(dict(member=member, checkpoint_sha256=digest(checkpoint), trace=trace,
-                heldout=evaluate(model, test_rows, device) if test_rows else None))
+                heldout=evaluate_interventions(model, test_rows, device) if test_rows else None))
         reports.append(dict(target=target, training_designs=sorted({r['design'] for r in train_rows}),
                             members=members))
     save(args.out / 'report.json', dict(schema=SCHEMA, members=args.members, targets=reports,
