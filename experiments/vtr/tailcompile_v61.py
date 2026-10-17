@@ -128,7 +128,8 @@ class HierarchicalMatcher(nn.Module):
                              data['spatial_global_x']))
         context = self.readout(summary)
         return dict(route_logit=self.route(context).squeeze(), qor=self.qor(context),
-                    score=self.rank(context).squeeze(), hotspot=self.hotspot(x).squeeze(-1))
+                    score=self.rank(context).squeeze(), hotspot=self.hotspot(x).squeeze(-1),
+                    embedding=context)
 
 
 def preference(left, right, epsilon=1e-4):
