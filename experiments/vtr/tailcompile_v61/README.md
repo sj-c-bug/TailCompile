@@ -63,10 +63,18 @@ echo "PID=$!"
 训练日志出现 `GPU train complete` 后即可释放 GPU 实例。回到 CPU 实例生成候选并续跑 VPR：
 
 ```bash
+export TAILCOMPILE_V61_JOBS=2
 nohup bash experiments/vtr/tailcompile_v61/run_pipeline.sh evaluate \
   > logs/v61_evaluate.log 2>&1 </dev/null &
 echo "PID=$!"
 ```
+
+`TAILCOMPILE_V61_JOBS` 是同时运行的 VPR 进程数，不应直接设成全部 CPU 核数。此前大型设计单进程
+内存峰值可达数 GiB；建议先用 2，确认 `memory.current` 有足够余量后再提高到 3 或 4。任务按设计
+交错调度，避免优先并发同一大型设计的多个 seed；每个 trial 使用独立目录，只有主线程更新
+`vpr_results.json`。日志中的 `vpr_schedule` 会记录实际并行度和任务总数。
+续跑入口持有单实例锁；平台硬停止后，缺少 manifest 且没有活跃进程占用的半成品 trial 会被移动到
+`candidates/_interrupted_history/` 后重跑，原始诊断文件仍可恢复。
 
 原来的无参数命令仍可在不会因 GPU 空闲而回收的机器上串行执行全部阶段。各阶段具有已有的
 签名和 manifest 复用检查；中断后重跑同一阶段不会重做已完整的 checkpoint、候选或 VPR trial。

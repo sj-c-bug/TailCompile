@@ -3,6 +3,10 @@ import argparse
 import json
 import math
 import random
+import shutil
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict
 from pathlib import Path
 from tailcompile_v61 import (SCHEMA, HierarchicalMatcher, candidate_graph, static_graph,
                              swap_proposal, to_device)
@@ -12,6 +16,29 @@ from tailcompile_v2 import contract_edges
 from tailcompile_v3 import lower_fplace
 from tailrisk_core import parse_blif
 from prepare_tailcompile_v61 import load
+
+
+def recover_interrupted(directory, root):
+    """Quarantine a run killed before its manifest, but never touch a live run."""
+    directory = directory.resolve()
+    if not directory.exists() or not any(directory.iterdir()) or (directory / 'manifest.json').exists():
+        return
+    needle = str(directory).encode()
+    proc = Path('/proc')
+    if not proc.is_dir():
+        raise RuntimeError(f'cannot prove incomplete run is inactive: {directory}')
+    for cmdline in proc.glob('[0-9]*/cmdline'):
+        try:
+            if needle in cmdline.read_bytes():
+                raise RuntimeError(f'run still belongs to an active process: {directory}')
+        except (FileNotFoundError, PermissionError, ProcessLookupError):
+            continue
+    relative = directory.relative_to(root.resolve())
+    archive = root / '_interrupted_history' / relative.parent / (relative.name + '-' + str(time.time_ns()))
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(directory), str(archive))
+    print(json.dumps(dict(stage='quarantine_interrupted', run=str(directory),
+                          archive=str(archive))), flush=True)
 
 
 def generate(args):
@@ -125,11 +152,18 @@ def vpr(args):
     from v5_vpr_retry import run_one
     from prepare_tailcompile_v3_training import success_metrics
     import os
+    args.out.mkdir(parents=True, exist_ok=True)
+    lock_file = (args.out / '.vpr.lock').open('w')
+    try:
+        import fcntl
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        raise RuntimeError(f'another v6.1 evaluator holds {args.out / ".vpr.lock"}') from error
     backend = Backend(os.environ.get('VTR_ROOT'))
     plan = load(args.out / 'generation_report.json')['candidates']
     if len(set(args.seeds)) != len(args.seeds) or not set(args.seeds).isdisjoint(range(11, 33)):
         raise ValueError('use fresh evaluation seeds, e.g. 41 42')
-    rows = []
+    candidates = []
     for candidate in plan:
         design, width = candidate['design'], candidate['width']
         inputs = Path(candidate['inputs'])
@@ -141,18 +175,63 @@ def vpr(args):
                                ('v61', Path(candidate['selected']))):
             if fplace and digest(fplace) != candidate['baseline_sha256' if method == 'gnn_base' else 'selected_sha256']:
                 raise ValueError('fplace changed after selection')
+            candidates.append(dict(design=design, width=width, method=method, fplace=fplace,
+                inputs=inputs, device_width=int(record['device_width']),
+                full_legalizer=config['ap_full_legalizer']))
+
+    # Interleave designs so several seeds/widths from one large circuit are not
+    # preferentially launched together.  jobs is deliberately explicit: VPR
+    # memory, rather than the CPU count, is normally the safe parallelism limit.
+    grouped = defaultdict(list)
+    for candidate in candidates:
+        grouped[candidate['design'], candidate['method']].append(candidate)
+    tasks = []
+    for method in ('default', 'gnn_base', 'v61'):
+        by_design = {design: sorted(grouped[design, method], key=lambda c: c['width'])
+                     for design in sorted({c['design'] for c in candidates})}
+        width_slots = max(map(len, by_design.values()))
+        for slot in range(width_slots):
             for seed in args.seeds:
-                directory = args.out / design / f'w{width}/runs/{method}_s{seed}'
-                meta = run_one(backend, directory, inputs / f'{design}.pre-vpr.blif',
-                    inputs / f'{design}.net', width, int(record['device_width']), seed, fplace,
-                    timeout=args.timeout, full_legalizer=config['ap_full_legalizer'])
-                row = dict(design=design, width=width, method=method, seed=seed, status=meta['vpr_status'])
-                if row['status'] == 'success':
-                    row.update(success_metrics(directory, design))
-                save(directory / 'v61_metrics.json', row)
-                rows.append(row)
-                save(args.out / 'vpr_results.json', dict(complete=False, rows=rows))
+                for design in sorted(by_design):
+                    if slot < len(by_design[design]):
+                        tasks.append((by_design[design][slot], seed))
+
+    def execute(task):
+        candidate, seed = task
+        design, width, method = (candidate[k] for k in ('design', 'width', 'method'))
+        directory = args.out / design / f'w{width}/runs/{method}_s{seed}'
+        inputs = candidate['inputs']
+        if args.recover_interrupted:
+            recover_interrupted(directory, args.out)
+        meta = run_one(backend, directory, inputs / f'{design}.pre-vpr.blif',
+            inputs / f'{design}.net', width, candidate['device_width'], seed,
+            candidate['fplace'], timeout=args.timeout,
+            full_legalizer=candidate['full_legalizer'])
+        row = dict(design=design, width=width, method=method, seed=seed,
+                   status=meta['vpr_status'])
+        if row['status'] == 'success':
+            row.update(success_metrics(directory, design))
+        save(directory / 'v61_metrics.json', row)
+        return row
+
+    print(json.dumps(dict(stage='vpr_schedule', jobs=args.jobs, task_count=len(tasks))), flush=True)
+    rows = []
+    with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+        futures = [executor.submit(execute, task) for task in tasks]
+        try:
+            for future in as_completed(futures):
+                rows.append(future.result())
+                ordered = sorted(rows, key=lambda r: (r['design'], r['width'], r['method'], r['seed']))
+                # Only the coordinator writes the shared report.
+                save(args.out / 'vpr_results.json', dict(complete=False, rows=ordered,
+                    completed_trials=len(ordered), expected_trials=len(tasks), parallel_jobs=args.jobs))
+        except BaseException:
+            for future in futures:
+                future.cancel()
+            raise
+    rows.sort(key=lambda r: (r['design'], r['width'], r['method'], r['seed']))
     save(args.out / 'vpr_results.json', dict(complete=True, rows=rows, comparisons=compare(rows),
+        parallel_jobs=args.jobs,
         interpretation='paired fresh-seed evaluation; success first, then jointly successful congestion/wire/CPD'))
 
 
@@ -190,9 +269,13 @@ if __name__ == '__main__':
     p.add_argument('--device', default='auto')
     p.add_argument('--seeds', nargs='+', type=int, default=[41, 42])
     p.add_argument('--timeout', type=int, default=1800)
+    p.add_argument('--jobs', type=int, default=1,
+                   help='parallel VPR processes; size by memory, not CPU count')
+    p.add_argument('--recover-interrupted', action='store_true',
+                   help='archive inactive run directories lacking a manifest before retrying')
     a = p.parse_args()
-    if not 0 < a.max_moved_fraction <= 1 or a.budget < 0:
-        p.error('invalid search budget or movement bound')
+    if not 0 < a.max_moved_fraction <= 1 or a.budget < 0 or a.jobs < 1:
+        p.error('invalid search budget, movement bound, or job count')
     if a.stage == 'generate':
         if a.bundle is None or a.models is None:
             p.error('generate requires bundle and models')

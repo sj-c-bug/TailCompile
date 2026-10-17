@@ -61,7 +61,8 @@ evaluate() {
     --budget "${TAILCOMPILE_V61_BUDGET:-64}" --device cpu
   stage=vpr
   python3 experiments/vtr/run_tailcompile_v61.py --out "$out/candidates" \
-    --stage vpr --seeds 41 42
+    --stage vpr --seeds 41 42 --jobs "${TAILCOMPILE_V61_JOBS:-1}" \
+    --recover-interrupted
   stage=acceptance
   python3 experiments/vtr/check_tailcompile_v61.py --out "$out" --require-complete
   echo "TailCompile v6.1 CPU evaluation complete: $out/candidates/vpr_results.json"
