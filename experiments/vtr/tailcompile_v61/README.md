@@ -33,9 +33,13 @@ RiskEvaluator 仍预计算区域最短路，图很大时会成为开销来源；
 大图训练按一个 design/width 的六候选累积梯度图。若显存不足，优先调大 tile size（新输出目录），不要修改实验中途已有 bundle。
 所有 bundle/checkpoint 都只加载自己生成的可信文件。新增模型 schema 与 v6 不兼容，必须重新训练。
 
-## 服务器运行
+## 服务器分阶段运行
 
-先激活已有 torch 环境，确保 VTR 动态库路径可用；不要 source 会自动启动旧任务的脚本。
+数据准备和 VPR 都是 CPU/内存密集任务，训练才是 GPU 任务。GPU 实例在训练结束后长时间执行 VPR
+可能因 GPU 空闲被平台回收，因此正式运行应拆成 CPU → GPU → CPU 三个可恢复阶段。三个实例必须看到
+同一个 `TAILCOMPILE_V61_OUT`（共享盘或完成阶段间复制整个输出目录）。不要 source 会自动启动旧任务的脚本。
+
+CPU 实例先准备数据：
 
 ```bash
 cd "$TAILCOMPILE_REPO"
@@ -43,9 +47,39 @@ git pull --ff-only
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export TAILCOMPILE_V61_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v61/runs/tile8_001"
 mkdir -p logs
-nohup bash experiments/vtr/tailcompile_v61/run_pipeline.sh > logs/v61_tile8_001.log 2>&1 </dev/null &
+nohup bash experiments/vtr/tailcompile_v61/run_pipeline.sh prepare \
+  > logs/v61_prepare.log 2>&1 </dev/null &
 echo "PID=$!"
 ```
+
+GPU 实例只训练。默认明确要求 CUDA；CUDA 不可用会立即失败，不会静默退回 CPU：
+
+```bash
+nohup bash experiments/vtr/tailcompile_v61/run_pipeline.sh train \
+  > logs/v61_train.log 2>&1 </dev/null &
+echo "PID=$!"
+```
+
+训练日志出现 `GPU train complete` 后即可释放 GPU 实例。回到 CPU 实例生成候选并续跑 VPR：
+
+```bash
+nohup bash experiments/vtr/tailcompile_v61/run_pipeline.sh evaluate \
+  > logs/v61_evaluate.log 2>&1 </dev/null &
+echo "PID=$!"
+```
+
+原来的无参数命令仍可在不会因 GPU 空闲而回收的机器上串行执行全部阶段。各阶段具有已有的
+签名和 manifest 复用检查；中断后重跑同一阶段不会重做已完整的 checkpoint、候选或 VPR trial。
+
+随时检查状态：
+
+```bash
+python3 experiments/vtr/check_tailcompile_v61.py --out "$TAILCOMPILE_V61_OUT"
+```
+
+最终 `accepted=true` 才算全部完成。标准六设计实验还应显示 6 个 checkpoint、12 个
+`selected.fplace`、72 个唯一 trial，且状态仅为 `success` 或 `unroutable`；最后结果文件必须有
+`complete=true` 和 comparisons。`unroutable` 是有效实验标签，不是程序故障。
 
 完成条件：`candidates/vpr_results.json` 中 complete=true；6 个 leave-design-out checkpoints；12 个 selected.fplace；72 个配对 trial（未指定子集时）。
 模型排名提升只是诊断。是否成功以 v61 相对 Default/gnn_base 的实测成功率、拥塞、线长、CPD 为准。
