@@ -422,9 +422,30 @@ def compare(rows, contender='v62'):
     return result
 
 
+def evaluation_scope(report, designs, condition_specs):
+    """Select whole designs or exact design:width conditions for evaluation."""
+    if condition_specs:
+        conditions = set()
+        for spec in condition_specs:
+            try:
+                design, width = spec.rsplit(':', 1)
+                conditions.add((design, int(width)))
+            except (ValueError, TypeError):
+                raise ValueError(f'invalid condition {spec!r}; expected DESIGN:WIDTH') from None
+        selected = [row for row in report if (row['design'], row['width']) in conditions]
+        found = {(row['design'], row['width']) for row in selected}
+        if found != conditions:
+            raise ValueError(f'evaluation conditions missing from selection report: {sorted(conditions - found)}')
+        return selected, conditions
+    selected_designs = None if designs == ['all'] else set(designs)
+    selected = report if selected_designs is None else [row for row in report
+                                                        if row['design'] in selected_designs]
+    return selected, None
+
+
 def evaluate_selected(args):
     report = load(args.selection / 'selection_report.json')['selections']
-    designs = None if args.designs == ['all'] else set(args.designs)
+    report, conditions = evaluation_scope(report, args.designs, args.conditions)
     prior = []
     if args.prior_results:
         prior_report = load(args.prior_results)
@@ -434,8 +455,6 @@ def evaluate_selected(args):
     prior_keys = {(r['design'], r['width'], r['candidate'], r['seed']) for r in prior}
     tasks = []
     for row in report:
-        if designs is not None and row['design'] not in designs:
-            continue
         for method, fplace in (('default', None), ('gnn_base', row['baseline']),
                                ('v62', row['selected_fplace'])):
             for seed in args.eval_seeds:
@@ -451,7 +470,7 @@ def evaluate_selected(args):
     new_rows = parallel_trials(tasks, args.jobs, args.timeout, args.out, 'vpr_results.partial.json') if tasks else []
     rows = sorted(prior + new_rows, key=lambda r: (r['design'], r['width'], r['candidate'], r['seed']))
     comparisons = compare(rows)
-    pilot = designs == {d for d, _ in PILOT}
+    pilot = conditions == set(PILOT)
     gate_detail = None
     gate = None
     if pilot:
@@ -494,6 +513,7 @@ def main():
     p.add_argument('--uncertainty-z', type=float, default=1.0)
     p.add_argument('--qor-tolerance', type=float, default=0.01)
     p.add_argument('--designs', nargs='+', default=[d for d, _ in PILOT])
+    p.add_argument('--conditions', nargs='+', help='exact DESIGN:WIDTH conditions to evaluate')
     a = p.parse_args()
     if a.jobs < 1 or a.members < 2:
         p.error('jobs must be positive and ensemble must have at least two members')

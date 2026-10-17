@@ -3,10 +3,19 @@ os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
 import math
 import unittest
 import torch
-from run_tailcompile_v62 import conservative_audit, compare, evaluate_interventions
+from run_tailcompile_v62 import (PILOT, conservative_audit, compare,
+                                 evaluate_interventions, evaluation_scope)
 
 
 class V62Test(unittest.TestCase):
+    def test_pilot_scope_uses_exact_widths(self):
+        report = [dict(design=design, width=width) for design, width in PILOT]
+        report += [dict(design=design, width=width + 20) for design, width in PILOT]
+        specs = [f'{design}:{width}' for design, width in PILOT]
+        selected, conditions = evaluation_scope(report, [], specs)
+        self.assertEqual({(r['design'], r['width']) for r in selected}, set(PILOT))
+        self.assertEqual(conditions, set(PILOT))
+
     def test_heldout_evaluation_uses_noop_baseline(self):
         class Model(torch.nn.Module):
             def forward(self, graph):

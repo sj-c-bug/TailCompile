@@ -51,7 +51,7 @@ if [[ "$phase" == pilot ]]; then
   stage=pilot_vpr
   python3 experiments/vtr/run_tailcompile_v62.py --stage evaluate \
     --selection "$out/selection" --out "$out/pilot" --jobs "$jobs" \
-    --designs conv_layer eltwise_layer lenet lstm
+    --conditions conv_layer:120 eltwise_layer:120 lenet:180 lstm:140
   python3 experiments/vtr/check_tailcompile_v62.py --out "$out" --require pilot
 fi
 
