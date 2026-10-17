@@ -1,5 +1,7 @@
 """Generate capacity-preserving learned .fplace refinements and pair with VPR."""
 import argparse
+import hashlib
+import inspect
 import json
 import math
 import random
@@ -16,6 +18,32 @@ from tailcompile_v2 import contract_edges
 from tailcompile_v3 import lower_fplace
 from tailrisk_core import parse_blif
 from prepare_tailcompile_v61 import load
+
+
+# v6.1 candidates already produced before VPR parallelism was added used the
+# hash of this entire file.  That coupled evaluator-only edits to generation.
+LEGACY_GENERATION_IMPLEMENTATIONS = {
+    '88ef9b376311b61b5f72d4b8b4c03d0e45da08a2c217a0929852688889ddccdb',
+}
+
+
+def generation_implementation():
+    """Fingerprint candidate-search code and dependencies, excluding VPR orchestration."""
+    hasher = hashlib.sha256(inspect.getsource(generate).encode())
+    root = Path(__file__).resolve().parent
+    for name in ('tailcompile_v61.py', 'tailcompile_v3.py', 'tailcompile_v4_risk.py',
+                 'tailcompile_v2.py', 'tailrisk_core.py'):
+        hasher.update(name.encode())
+        hasher.update(digest(root / name).encode())
+    return hasher.hexdigest()
+
+
+def reusable_generation_signature(old, expected):
+    if old == expected:
+        return True
+    return (old.get('implementation') in LEGACY_GENERATION_IMPLEMENTATIONS and
+            {k: v for k, v in old.items() if k != 'implementation'} ==
+            {k: v for k, v in expected.items() if k != 'implementation'})
 
 
 def recover_interrupted(directory, root):
@@ -60,11 +88,19 @@ def generate(args):
         work = args.out / design / f'w{width}'
         signature = dict(checkpoint_sha256=digest(checkpoint), bundle_sha256=fingerprint,
             budget=args.budget, seed=args.seed, max_moved_fraction=args.max_moved_fraction,
-            implementation=digest(Path(__file__)), schema=SCHEMA)
+            implementation=generation_implementation(), schema=SCHEMA)
         if (work / 'selection.json').exists():
             old = load(work / 'selection.json')
-            if old['signature'] != signature or digest(work / 'selected.fplace') != old['selected_sha256']:
+            if (not reusable_generation_signature(old['signature'], signature) or
+                    digest(work / 'selected.fplace') != old['selected_sha256'] or
+                    digest(Path(old['baseline'])) != old['baseline_sha256']):
                 raise ValueError('generation inputs changed; use new output directory')
+            if old['signature'] != signature:
+                old['signature'] = signature
+                old['signature_migration'] = 'legacy whole-runner hash to generation-only fingerprint'
+                save(work / 'selection.json', old)
+                print(json.dumps(dict(stage='migrate_generation_signature', design=design,
+                                      width=width)), flush=True)
             plans.append(old)
             continue
         if work.exists() and any(work.iterdir()):

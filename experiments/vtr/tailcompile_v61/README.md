@@ -75,6 +75,8 @@ echo "PID=$!"
 `vpr_results.json`。日志中的 `vpr_schedule` 会记录实际并行度和任务总数。
 续跑入口持有单实例锁；平台硬停止后，缺少 manifest 且没有活跃进程占用的半成品 trial 会被移动到
 `candidates/_interrupted_history/` 后重跑，原始诊断文件仍可恢复。
+候选复用签名只覆盖候选搜索函数及其依赖，不再因同文件中的 VPR 调度代码变化而失效；首轮续跑会
+在完整核对 bundle、checkpoint、参数、基线和输出 `.fplace` 哈希后迁移早期 v6.1 签名。
 
 原来的无参数命令仍可在不会因 GPU 空闲而回收的机器上串行执行全部阶段。各阶段具有已有的
 签名和 manifest 复用检查；中断后重跑同一阶段不会重做已完整的 checkpoint、候选或 VPR trial。

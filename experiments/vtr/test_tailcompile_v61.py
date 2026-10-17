@@ -11,6 +11,7 @@ from tailcompile_v61 import (SCHEMA, HierarchicalMatcher, hierarchy, preference,
 from prepare_tailcompile_v61 import tile_device
 from train_tailcompile_v61 import group_loss, run
 from train_tailcompile_v6 import ranks, evaluate
+from run_tailcompile_v61 import reusable_generation_signature
 
 
 def graph(columns=4, rows=4):
@@ -26,6 +27,14 @@ def graph(columns=4, rows=4):
 
 
 class TestV61(unittest.TestCase):
+    def test_generation_signature_only_migrates_known_legacy_hash(self):
+        expected = dict(bundle_sha256='b', budget=64, implementation='new')
+        legacy = dict(expected, implementation=
+            '88ef9b376311b61b5f72d4b8b4c03d0e45da08a2c217a0929852688889ddccdb')
+        self.assertTrue(reusable_generation_signature(legacy, expected))
+        self.assertFalse(reusable_generation_signature(dict(legacy, budget=63), expected))
+        self.assertFalse(reusable_generation_signature(dict(legacy, implementation='unknown'), expected))
+
     def test_hierarchy_and_matching_influence_final_score(self):
         torch.manual_seed(0)
         model = HierarchicalMatcher(hidden=12)
