@@ -149,7 +149,7 @@ class DirectBackend(Backend):
 
     def command(self,args,cwd=None):
         command=super().command(args,cwd)
-        if command[0]==self.binary and '--analytical_place' in command:command+=['--num_workers','1']
+        if command[0]==getattr(self,'binary',None) and '--analytical_place' in command:command+=['--num_workers','1']
         return command
 
 def tasks(a,plan,timing=False):

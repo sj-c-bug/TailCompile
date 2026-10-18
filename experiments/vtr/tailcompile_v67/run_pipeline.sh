@@ -3,7 +3,7 @@ set -eEuo pipefail
 : "${TAILCOMPILE_REPO:?set TAILCOMPILE_REPO}"
 cd "$TAILCOMPILE_REPO"
 phase="${1:-status}"
-out="${TAILCOMPILE_V67_OUT:-$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v67/runs/direct_001}"
+out="${TAILCOMPILE_V67_OUT:-$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v67/runs/abcd_001}"
 mkdir -p "$out"
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -15,7 +15,7 @@ stage=init
 trap 'code=$?; echo "ERROR phase=$phase stage=$stage line=$LINENO code=$code"; exit "$code"' ERR
 run() {
   stage="$1"
-  python3 experiments/vtr/tailcompile_v67/direct.py "$1" --out "$out" \
+  python3 experiments/vtr/tailcompile_v67/four_routes.py "$1" --out "$out" \
     --jobs "${TAILCOMPILE_V67_JOBS:-8}" --timeout "${TAILCOMPILE_V67_TIMEOUT:-7200}" \
     --device "${TAILCOMPILE_V67_DEVICE:-cpu}" \
     --checkpoint "${TAILCOMPILE_GENERATOR_CHECKPOINT:-$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v3_training/model_width_conditioned/ranker.pt}" \

@@ -1,4 +1,26 @@
-# v6.7：GNN-only 对 Default，分项 runtime
+# v6.7：ABCD 四路线，分项 runtime
+
+当前 `run_pipeline.sh` 调用 `four_routes.py`，默认新目录 `abcd_001`。
+旧的 `direct.py` 双路线入口保留为生成器和历史实验，不要混用旧 `direct_001` 的 VPR 结果。
+
+| 路线 | 初始布局 | 自有局部修正 | 后续流程 |
+|---|---|---|---|
+| A_default | VPR GP | 无 | appack → annealer → route |
+| B_gnn | GNN `.fplace`，原生入口跳过 GP | 无 | 同上 |
+| C_default_refine | VPR GP | 有 | 同上 |
+| D_gnn_refine | GNN `.fplace`，原生入口跳过 GP | 有 | 同上 |
+
+C/D 在相同的合法化前 hook 执行相同修正：复用 v6.6 完整 AP-block/molecule/RAM-group
+交换动作，1%/2%/5% 预算、hotspot/wire 两类、各两次确定性提案，包含 replay。
+按归一化 RUDY-tail + HPWL 最小值选择，平分时不移动；沿用 HPWL 增长不超过3%的代理保护。
+**这是冻结的无标签启发式选择，不是训练后的 v6.6 selector，不是 VPR oracle，也不保证实际 CPD/拥塞改善。**
+修正不读取 route 结果，C/D 同参数，所有搜索候选成本均计入。VPR 的 annealer 仍正常执行。
+
+主报告统一输出 B/A、C/A、D/B、D/C、D/A 配对，以及四组逐 seed Wmin/W80。
+局部 worker 在 VPR 进程内同步调用：C 的 GP 成本与 C/D 的导出、启动 worker、搜索、输出和导入
+都已在 VPR wall 内，**绝不重复加计 worker_seconds**。B/D 再加下面表格中的 GNN 成本。
+每个子进程独立环境变量，避免并行时不同路线互相污染；超时杀死整个 VPR/worker 进程组。
+启动时先串行验证第一项 C/D 的真实 hook 标记，再提交批量任务；旧二进制漏装 hook 会立即失败。
 
 这是独立的新对照脚本，不改变 v6.6 已冻结的代码/协议/输出。
 优先回答原始问题：**不做局部修改，GNN 生成的预布局交给 VPR，能否改善 Wmin 或耗时？**
@@ -8,7 +30,7 @@
 - Default：VPR analytical placement → appack → annealer → route。
 - GNN-only：原始双塔生成器一次前向 → 固定 partition prior → min-cost flow 容量分配 →
   `.fplace` → VPR 原生 `--read_flat_place` → appack → annealer → route。
-- 不进行候选扰动、局部交换、模拟退火搜索、候选选择或事后选最优。
+- B 不进行候选扰动或局部交换；C/D 增加上面明确的修正。四组均不事后按真实 VPR 选最优。
 - checkpoint 默认是原有 `model_width_conditioned/ranker.pt`；虽然名字叫 ranker，
   这是输出 cluster→region 分数和相对坐标的原始生成模型。不是 v6.x 只能评分的模型。
 - 脚本拒绝 checkpoint 中出现过的训练/验证设计；默认六个 v5 设计都不属于该 checkpoint
@@ -18,7 +40,7 @@
 - 默认每个设计取旧 Default-only screen 的首个成功宽度 ±30、步长10，七档宽度；
   新 seeds 251–255。每个宽度生成自己的 width-conditioned `.fplace`，每个 seed 复用它。
   Wmin 是同一算法在不同给定宽度下的网格最小成功值，不是固定坐标的纯 route-only Wmin。
-- 六个设计共 420 次主扫描，另做 420 次串行配对计时。主扫描并行；正式 runtime 不用并行扫描的墙钟时间。
+- 六个设计共 840 次主扫描，另做 840 次串行配对计时。主扫描并行；正式 runtime 不用并行扫描的墙钟时间。
 - 输出逐 seed 网格 Wmin、删失/非单调性、W80、共同成功条件下的线长/CPD 和分口径 speedup。
 
 原生 `.fplace` 入口会跳过 GP，并改变 RAM grouping 路径。因此本轮测量的是 GNN→VPR
@@ -62,15 +84,19 @@ RRG 一次性成本也不会默默归零；其可测分项单列，未测分项�
 ## 运行
 
 不需要重新训练，也不需要先跑 v6.6。使用原先可运行 torch 和 VPR 的环境。
-VTR 基础 commit 仍为 `40f8d197...`；可用干净源码二进制，或安装了精确 v6.6 hook 的二进制。
+VTR 基础 commit 仍为 `40f8d197...`；四组必须使用安装精确 v6.6 hook 后重新编译的同一二进制。
+hook 在 A/B 无环境变量时不执行。安装器拒绝覆盖无关源码修改。
 本脚本会清除 TC_GP_* 环境变量，保证 hook 不参与此次流程；同一批次冻结二进制 hash。
 
 ```bash
 cd "$TAILCOMPILE_REPO"
 git pull --ff-only
+python3 experiments/vtr/tailcompile_v66/install_hook.py "$VTR_ROOT"
+cmake --build "$VTR_ROOT/build" --target vpr -j 8
 python3 experiments/vtr/tailcompile_v67/test_direct.py
+python3 experiments/vtr/tailcompile_v67/test_four_routes.py
 
-export TAILCOMPILE_V67_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v67/runs/direct_001"
+export TAILCOMPILE_V67_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v67/runs/abcd_001"
 export TAILCOMPILE_V67_JOBS=8
 export TAILCOMPILE_V67_DEVICE=cpu
 mkdir -p logs
@@ -92,20 +118,20 @@ echo "PID=$!"
 bash experiments/vtr/tailcompile_v67/run_pipeline.sh status
 ```
 
-默认验收：trials=420、timing_trials=420、complete=true，且生成 evaluation_report.json。
+默认验收：expected_per_phase=840、valid_trials.runs=840、valid_trials.timing=840、complete=true，且生成 evaluation_report.json。
 完成任务不等于结果有收益；必须查看 W80/Wmin、删失、QoR 和对应计时口径。
 完整任务可复用；中断/超时/环境失败保留原始日志并拒绝当成布线失败。不要清空整批有效结果。
 
 ## Git 同步
 
 ```bash
-git add -- experiments/vtr/tailcompile_v67/runs/direct_001/signature.json \
-  experiments/vtr/tailcompile_v67/runs/direct_001/plan.json \
-  experiments/vtr/tailcompile_v67/runs/direct_001/vpr_identity.json \
-  experiments/vtr/tailcompile_v67/runs/direct_001/evaluation_report.json \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/direct_001/**/generation.json' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/direct_001/**/trial.json' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/direct_001/**/manifest.json'
-git commit -m "Add direct GNN placement and decomposed runtime results"
+git add -- experiments/vtr/tailcompile_v67/runs/abcd_001/signature.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_001/plan.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_001/abcd_protocol.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_001/evaluation_report.json \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/generation.json' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/trial.json' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/refined.selection.json'
+git commit -m "Add ABCD placement and decomposed runtime results"
 git push origin main
 ```
