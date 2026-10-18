@@ -11,6 +11,19 @@ MARK = '    // Verify that the partial placement is valid before running the ful
 INCLUDE = '#include "tailcompile_gp_hook.inc"\n'
 CALL = '    tailcompile_gp_hook(atom_nlist, ap_netlist, prepacker, p_placement);\n\n'
 
+def verify_changes(root, changed):
+    """Accept audited source plus a build symlink; binary hashes remain frozen."""
+    if set(changed) - {REL, 'vpr/vpr'}:
+        raise ValueError(f'unexpected VTR source modifications: {changed}')
+    if 'vpr/vpr' in changed:
+        entry = root / 'vpr/vpr'
+        allowed = {root.resolve() / build / 'vpr/vpr'
+                   for build in ('build', 'build_tailcompile_conda')}
+        if not entry.is_symlink() or not entry.is_file() or entry.resolve() not in allowed:
+            raise ValueError('vpr/vpr must link to an existing build/vpr/vpr or '
+                             'build_tailcompile_conda/vpr/vpr inside this VTR tree')
+
+
 def expected(root):
     pristine = subprocess.check_output(['git', '-C', str(root), 'show', f'{COMMIT}:{REL}']).decode()
     if pristine.count(MARK) != 1:
@@ -26,8 +39,7 @@ def verify(root):
     if target.read_text() != expected(root) or not hook.is_file() or hook.read_text() != wanted:
         raise ValueError('install the exact v6.6 GP hook and rebuild VPR first')
     changed = subprocess.check_output(['git', '-C', str(root), 'diff', '--name-only', '--ignore-submodules', 'HEAD']).decode().splitlines()
-    if changed != [REL]:
-        raise ValueError(f'unexpected VTR source modifications: {changed}')
+    verify_changes(root, changed)
     return hashlib.sha256(wanted.encode()).hexdigest()
 
 def main():
@@ -40,8 +52,7 @@ def main():
     if actual != COMMIT:
         raise ValueError(f'expected {COMMIT}, got {actual}')
     changed=subprocess.check_output(['git','-C',str(root),'diff','--name-only','--ignore-submodules','HEAD']).decode().splitlines()
-    if any(name!=REL for name in changed):
-        raise ValueError(f'unrelated VTR modifications; refusing installation: {changed}')
+    verify_changes(root, changed)
     target = root / REL
     pristine = subprocess.check_output(['git', '-C', str(root), 'show', f'{COMMIT}:{REL}']).decode()
     desired = expected(root)
