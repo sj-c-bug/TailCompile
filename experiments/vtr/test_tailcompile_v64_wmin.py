@@ -71,6 +71,10 @@ class WidthSweepTest(unittest.TestCase):
             plan = make_plan(path, [81, 82, 83], {('conv_layer', 140): [100, 110, 120],
                 ('lenet', 160): [160, 170, 180]})
             self.assertEqual(plan['task_count'], 54)
+            guided = make_plan(path, [101, 102, 103],
+                {('conv_layer', 140): [100, 110, 120],
+                 ('lenet', 160): [160, 170, 180]}, 'guided_tail')
+            self.assertEqual(guided['candidate_method'], 'guided_tail')
             with self.assertRaises(ValueError):
                 make_plan(path, [71, 82, 83], {('conv_layer', 140): [100, 110, 120],
                     ('lenet', 160): [160, 170, 180]})

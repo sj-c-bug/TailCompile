@@ -316,7 +316,7 @@ def objective(state, scales, mode):
 
 
 def search(evaluator, initial, budget=512, seed=2027, mode='tail', scales=None,
-           policy='hotspot', progress=None):
+           policy='hotspot', progress=None, max_moved_fraction=None):
     """Fixed objective-evaluation budget; invalid proposals counted separately.
 
 random_restart evaluates random legal perturbations of the ORIGINAL start;
@@ -335,6 +335,10 @@ the same legalizer, proxy paths and normalization reference.
     best = objective(current, scales, mode)
     trace, evaluations, attempts = [], 0, 0
     movable = [c['id'] for c in evaluator.logic['clusters'] if c['resource'] in RESOURCES]
+    if max_moved_fraction is not None and not 0 < max_moved_fraction <= 1:
+        raise ValueError('max_moved_fraction must be in (0, 1]')
+    max_moved = (max(1, math.floor(len(movable) * max_moved_fraction))
+                 if max_moved_fraction is not None else None)
     resources = [c['resource'] for c in evaluator.logic['clusters']]
     by_resource = {r: [n for n in movable if resources[n] == r] for r in RESOURCES}
     clock = time.monotonic()
@@ -367,7 +371,10 @@ the same legalizer, proxy paths and normalization reference.
                 proposal[node] = target
                 changed.add(node)
         changed = {n for n in changed if proposal[n] != base[n]}
-        if not changed or not evaluator.legal(proposal, fixed=initial):
+        if (not changed or
+                (max_moved is not None and
+                 sum(proposal[n] != initial[n] for n in movable) > max_moved) or
+                not evaluator.legal(proposal, fixed=initial)):
             continue
         candidate = evaluator.state(proposal, base_state, changed)
         evaluations += 1
@@ -388,6 +395,7 @@ the same legalizer, proxy paths and normalization reference.
         if not math.isclose(checked[key], current[key], rel_tol=1e-8, abs_tol=1e-8):
             raise AssertionError(f'incremental {key} mismatch')
     return assignment, {'schema': 'tailcompile-v4-search-v1', 'mode': mode, 'policy': policy,
+                        'max_moved_fraction': max_moved_fraction,
                         'budget': budget, 'evaluations': evaluations, 'attempts': attempts,
                         'accepted': len(trace), 'seed': seed, 'normalization': scales,
                         'seconds': time.monotonic() - clock,

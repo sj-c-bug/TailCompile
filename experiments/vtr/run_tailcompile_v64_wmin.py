@@ -51,7 +51,7 @@ def write(path, value):
 
 
 def width_map(specs):
-    result = dict(DEFAULT_WIDTHS)
+    result = {} if specs else dict(DEFAULT_WIDTHS)
     for spec in specs:
         try:
             design, anchor, widths = spec.split(':', 2)
@@ -59,15 +59,13 @@ def width_map(specs):
             values = [int(value) for value in widths.split(',')]
         except ValueError as exc:
             raise ValueError(f'invalid width specification {spec!r}; use DESIGN:ANCHOR:W1,W2,...') from exc
-        if key not in DEFAULT_WIDTHS:
-            raise ValueError(f'width override is not a frozen active v6.3 condition: {key}')
         if len(values) < 3 or values != sorted(set(values)) or any(value <= 0 for value in values):
             raise ValueError('widths must be >=3 sorted distinct positive integers')
         result[key] = values
     return result
 
 
-def make_plan(selection_path, seeds, grids):
+def make_plan(selection_path, seeds, grids, candidate_method='v63'):
     selection_path = Path(selection_path).resolve()
     report = read(selection_path)
     if not set(seeds).isdisjoint(set(range(51, 74))) or len(seeds) < 3 or len(seeds) != len(set(seeds)):
@@ -95,18 +93,24 @@ def make_plan(selection_path, seeds, grids):
             baseline_fplace=str(baseline), baseline_sha256=sha(baseline),
             selected_fplace=str(candidate), selected_sha256=sha(candidate),
             device_width=int(row['device_width']), full_legalizer=row['full_legalizer']))
-    if set((case['design'], case['anchor_width']) for case in cases) != set(DEFAULT_WIDTHS):
-        raise ValueError('active v6.3 selections differ from the preregistered two-condition cohort')
-    return dict(schema=SCHEMA, selection_report=str(selection_path),
+    if set((case['design'], case['anchor_width']) for case in cases) != set(grids):
+        raise ValueError('active selections differ from the preregistered width grids')
+    if not candidate_method or candidate_method in ('default', 'gnn_base'):
+        raise ValueError('candidate method must be distinct from both baselines')
+    plan = dict(schema=SCHEMA, selection_report=str(selection_path),
         selection_report_sha256=sha(selection_path), seeds=seeds, cases=cases,
         task_count=sum(len(c['widths']) * len(seeds) * 3 for c in cases),
         protocol='fixed packed net and fplace per anchor; exhaustive predeclared width grid')
+    if candidate_method != 'v63':
+        plan['candidate_method'] = candidate_method
+    return plan
 
 
 def tasks(plan, root):
+    candidate_method = plan.get('candidate_method', 'v63')
     for case in plan['cases']:
         for width in case['widths']:
-            for method in ('default', 'gnn_base', 'v63'):
+            for method in ('default', 'gnn_base', candidate_method):
                 fplace = (None if method == 'default' else
                           case['baseline_fplace'] if method == 'gnn_base' else case['selected_fplace'])
                 for seed in plan['seeds']:
@@ -272,6 +276,7 @@ def compare_pairs(candidate, baseline):
 
 
 def summarize_rows(plan, rows):
+    candidate_method = plan.get('candidate_method', 'v63')
     index = {(r['design'], r['anchor_width'], r['width'], r['method'], r['seed']): r for r in rows}
     if len(index) != len(rows) or len(rows) != plan['task_count']:
         raise ValueError('summary requires every distinct planned trial')
@@ -279,7 +284,7 @@ def summarize_rows(plan, rows):
     for case in plan['cases']:
         design, anchor, widths = case['design'], case['anchor_width'], case['widths']
         per_method = {}
-        for method in ('default', 'gnn_base', 'v63'):
+        for method in ('default', 'gnn_base', candidate_method):
             by_seed = {}
             success_by_width = {}
             for seed in plan['seeds']:
@@ -297,15 +302,15 @@ def summarize_rows(plan, rows):
                 monotonicity_violations=sum(v['monotonicity_violations'] for v in by_seed.values()))
         comparisons = {}
         for baseline in ('default', 'gnn_base'):
-            comp = compare_pairs({int(k): v for k, v in per_method['v63']['per_seed'].items()},
+            comp = compare_pairs({int(k): v for k, v in per_method[candidate_method]['per_seed'].items()},
                                  {int(k): v for k, v in per_method[baseline]['per_seed'].items()})
-            candidate_robust, baseline_robust = per_method['v63']['w80_grid'], per_method[baseline]['w80_grid']
+            candidate_robust, baseline_robust = per_method[candidate_method]['w80_grid'], per_method[baseline]['w80_grid']
             comp['w80_delta_grid'] = (candidate_robust - baseline_robust
                 if candidate_robust is not None and baseline_robust is not None else None)
             ratios = {key: [] for key in QOR}
             for width in widths:
                 for seed in plan['seeds']:
-                    a, b = index[design, anchor, width, 'v63', seed], index[design, anchor, width, baseline, seed]
+                    a, b = index[design, anchor, width, candidate_method, seed], index[design, anchor, width, baseline, seed]
                     if a['status'] == b['status'] == 'success':
                         for key in QOR:
                             if a[key] <= 0 or b[key] <= 0:
@@ -318,6 +323,7 @@ def summarize_rows(plan, rows):
         conditions.append(dict(design=design, anchor_width=anchor, selected=case['selected'],
                                widths=widths, methods=per_method, comparisons=comparisons))
     return dict(schema=SCHEMA, complete=True, selection_report_sha256=plan['selection_report_sha256'],
+        candidate_method=candidate_method,
         task_count=plan['task_count'], seeds=plan['seeds'], conditions=conditions,
         interpretation='W_min is the minimum successful tested width for a frozen placement; '
                        'left/right censoring and heuristic nonmonotonicity are explicit. '
@@ -332,6 +338,8 @@ def main():
     parser.add_argument('--seeds', type=int, nargs='+', default=DEFAULT_SEEDS)
     parser.add_argument('--widths', action='append', default=[],
                         help='override before plan creation: DESIGN:ANCHOR:W1,W2,...')
+    parser.add_argument('--candidate-method', default='v63',
+                        help='name of the frozen candidate placement, e.g. guided_tail')
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--timeout', type=int, default=1800)
     args = parser.parse_args()
@@ -340,7 +348,7 @@ def main():
     if args.phase == 'plan':
         if args.selection is None:
             parser.error('plan requires --selection')
-        plan = make_plan(args.selection, args.seeds, width_map(args.widths))
+        plan = make_plan(args.selection, args.seeds, width_map(args.widths), args.candidate_method)
         if plan_path.is_file():
             if read(plan_path) != plan:
                 raise ValueError('existing plan differs; use a new output directory')
