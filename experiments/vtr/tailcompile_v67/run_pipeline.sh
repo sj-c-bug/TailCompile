@@ -15,7 +15,12 @@ stage=init
 trap 'code=$?; echo "ERROR phase=$phase stage=$stage line=$LINENO code=$code"; exit "$code"' ERR
 run() {
   stage="$1"
-  python3 experiments/vtr/tailcompile_v67/four_routes.py "$1" --out "$out" \
+  extra=()
+  [[ "${TAILCOMPILE_V67_RETRY_TIMEOUTS:-0}" == 1 ]] && extra+=(--retry-timeouts)
+  [[ "${TAILCOMPILE_V67_RETRY_FAILED:-0}" == 1 ]] && extra+=(--retry-failed)
+  [[ "${TAILCOMPILE_V67_TIME_SCAN_TIMEOUTS:-0}" == 1 ]] && extra+=(--time-scan-timeouts)
+  python3 -u experiments/vtr/tailcompile_v67/resume.py "$1" --out "$out" "${extra[@]}" \
+    --heartbeat "${TAILCOMPILE_V67_HEARTBEAT:-120}" \
     --jobs "${TAILCOMPILE_V67_JOBS:-8}" --timeout "${TAILCOMPILE_V67_TIMEOUT:-7200}" \
     --device "${TAILCOMPILE_V67_DEVICE:-cpu}" \
     --checkpoint "${TAILCOMPILE_GENERATOR_CHECKPOINT:-$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v3_training/model_width_conditioned/ranker.pt}" \

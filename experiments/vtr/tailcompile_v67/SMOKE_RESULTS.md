@@ -18,3 +18,14 @@ C worker=22.1952秒，D worker=1.8655秒，已经包含在 VPR wall 内；未重
 
 10 项单元回归通过（test_direct.py 4项，test_four_routes.py 6项），Bash 语法检查通过。
 修复了原 DirectBackend 在 binary 字段初始化前调用 command 导致 AttributeError 的缺陷。
+
+## 2026-10-19 续跑与日志验证
+
+resume.py 的9项回归在 WSL 全部通过，包括真实进程超时、超时后继续其他任务、旧 code124 迁移、
+成功复用、失败归档、输入变化拒绝、Wmin 未知区间和计时排除统计。
+原有 test_direct.py 的4项和 test_four_routes.py 的6项继续通过。
+
+在同一 SHA 输入上用新入口运行 C/D：两者 success，worker.events.jsonl 都包含
+local_search_start、local_search_complete、worker_complete；再次启动均为 reused，未重跑 VPR。
+本地证据：/home/phoenix/vtr_work/v67_resume_smoke_001/smoke_summary.json。
+新入口不改动冻结算法及 hook，无需重编译。该测试只证明续跑/日志接口可用。

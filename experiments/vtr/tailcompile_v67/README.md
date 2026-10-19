@@ -1,6 +1,8 @@
 # v6.7：ABCD 四路线，分项 runtime
 
-当前 `run_pipeline.sh` 调用 `four_routes.py`，默认新目录 `abcd_001`。
+当前 `run_pipeline.sh` 调用 `resume.py`，默认目录 `abcd_001`。
+已有服务器实验继续使用 `abcd_002`，执行 `evaluate` 即可复用已有结果。
+`four_routes.py`、`refine.py` 和 VPR hook 保持冻结；新入口添加编排与日志，不修改布局动作。
 旧的 `direct.py` 双路线入口保留为生成器和历史实验，不要混用旧 `direct_001` 的 VPR 结果。
 
 | 路线 | 初始布局 | 自有局部修正 | 后续流程 |
@@ -86,7 +88,7 @@ RRG 一次性成本也不会默默归零；其可测分项单列，未测分项�
 不需要重新训练，也不需要先跑 v6.6。使用原先可运行 torch 和 VPR 的环境。
 VTR 基础 commit 仍为 `40f8d197...`；四组必须使用安装精确 v6.6 hook 后重新编译的同一二进制。
 hook 在 A/B 无环境变量时不执行。安装器拒绝覆盖无关源码修改。
-本脚本会清除 TC_GP_* 环境变量，保证 hook 不参与此次流程；同一批次冻结二进制 hash。
+每个子进程先清除继承的 TC_GP_*，再为 C/D 设置独立 hook 环境；同一批次冻结二进制 hash。
 
 ```bash
 cd "$TAILCOMPILE_REPO"
@@ -118,9 +120,56 @@ echo "PID=$!"
 bash experiments/vtr/tailcompile_v67/run_pipeline.sh status
 ```
 
-默认验收：expected_per_phase=840、valid_trials.runs=840、valid_trials.timing=840、complete=true，且生成 evaluation_report.json。
+当前验收：expected_per_phase=840，phase_status_counts 分别列出扫描/计时各状态，生成
+`resume_evaluation_report.json`。complete=true 表示预算内任务已归档、报告已生成；
+允许包含 timeout 与明确标注的跳过计时，不表示所有 Wmin 都已确定。
+`all_scan_route_outcomes_known` 单独说明扫描中是否仍有未知结果。
 完成任务不等于结果有收益；必须查看 W80/Wmin、删失、QoR 和对应计时口径。
 完整任务可复用；中断/超时/环境失败保留原始日志并拒绝当成布线失败。不要清空整批有效结果。
+
+## 超时容错和断点重启（适用于已有 abcd_002）
+
+直接重复 `run_pipeline.sh evaluate`。有效的 success/unroutable case 按二进制、架构、网表、
+候选、方法代码和 seed/宽度校验后复用，默认不重复运行旧 code=124。
+旧 trial.json 不改写；outcome.json 将旧 other_failure/code124 解释为 timeout。
+与当前方法不匹配的结果仍会被拒绝，不会靠忽略 hash 混入。
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+python3 experiments/vtr/tailcompile_v67/test_resume.py
+export TAILCOMPILE_V67_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v67/runs/abcd_002"
+export TAILCOMPILE_V67_JOBS=8
+mkdir -p logs
+log="logs/v67_resume_$(date +%Y%m%d_%H%M%S).log"
+nohup bash experiments/vtr/tailcompile_v67/run_pipeline.sh evaluate >"$log" 2>&1 </dev/null &
+echo "PID=$! LOG=$log"
+```
+
+本次升级无需重新编译 VPR，也不需要重新生成 .fplace。
+timeout 只终止当前进程组，其他任务和后续阶段继续。默认扫描超时的条件不再执行昂贵的串行计时，
+记录 `not_run_after_scan_timeout`，没有伪造计时值，也不参与加速比。
+成功率给出上下界；超时位于首个成功宽度之下时，Wmin 报告为未确定，另给已观察最小成功宽度。
+报告列出每个设计/方法的超时数与每项 runtime 比较排除的条件，不能只看共同成功子集的 speedup。
+
+中断后没有 trial.json 的目录会在续跑前移到 `_attempts/` 再启动，原始日志可恢复。
+明确重试时同样先归档，绝不清空整批数据。检测到前一进程仍活着时拒绝重复启动；
+本入口用 flock 防止同时启动两条 pipeline。重启前确认旧 pipeline 已结束。
+
+可选环境变量（默认均为0）：
+
+- `TAILCOMPILE_V67_RETRY_TIMEOUTS=1`：重跑已超时 case；完成的 case 仍复用。
+- `TAILCOMPILE_V67_RETRY_FAILED=1`：重跑其他错误；没有完整结果的中断任务自动归档重试。
+- `TAILCOMPILE_V67_TIME_SCAN_TIMEOUTS=1`：即使扫描超时，也独立进行串行计时。
+- `TAILCOMPILE_V67_TIMEOUT`：当前预算，可提高，禁止降低后复用较大预算数据。
+- `TAILCOMPILE_V67_HEARTBEAT`：进度日志间隔，默认120秒。
+
+如提高预算，旧成功结果及其原预算保留，重试结果记录新预算；报告属于混合预算探索，
+正式等预算比较需查看逐 trial signature，而不能据此声称统一预算收益。
+新运行用 `stdbuf` 刷新 VPR 日志，Python worker 逐阶段 flush；不需要更改或重编译 hook。
+阶段记录在 `stages.jsonl`、`worker.events.jsonl`，同一 trial 的搜索成本仍计入 VPR wall。
+`resume_sessions/*.json` 记录编排/观测代码 hash 与续跑参数。旧成功 case 的旧计时原样保留，
+新增 case 的观测开销也包含在时间里；这是复用旧批次的现实限制。
 
 ## Git 同步
 
@@ -128,10 +177,14 @@ bash experiments/vtr/tailcompile_v67/run_pipeline.sh status
 git add -- experiments/vtr/tailcompile_v67/runs/abcd_001/signature.json \
   experiments/vtr/tailcompile_v67/runs/abcd_001/plan.json \
   experiments/vtr/tailcompile_v67/runs/abcd_001/abcd_protocol.json \
-  experiments/vtr/tailcompile_v67/runs/abcd_001/evaluation_report.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_001/resume_evaluation_report.json \
   ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/generation.json' \
   ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/trial.json' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/refined.selection.json'
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/refined.selection.json' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/outcome.json' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/stages.jsonl' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/worker.events.jsonl' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/resume_sessions/*.json'
 git commit -m "Add ABCD placement and decomposed runtime results"
 git push origin main
 ```
