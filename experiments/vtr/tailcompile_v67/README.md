@@ -271,6 +271,45 @@ GNN 的生成分项复用已有 generation.json 测量，没有在并发 VPR 负
 另保留 trial.json、launch_affinity.json、worker.events.jsonl 以核验绑定与断点。
 原始 VPR 大文件仍留在服务器。
 
+## 旧实验磁盘清理
+
+不要按版本整目录删除：当前默认输入仍来自 v5 的 `holdout_001/inputs`，
+checkpoint 来自 `tailcompile_v3_training/model_width_conditioned`。
+`.gitignore` 只控制 Git 同步，不会释放服务器磁盘。
+
+`storage_cleanup.py` 第一轮只清理 v0–v6、v6.1–v6.5 的已结束运行中，
+超过24小时的 `.route[.gz]`、RRG XML/bin 和 `.rpt/.echo`。
+不删除目录，不处理 v6.6/v6.7、training、pilot 输入目录；保护输入/IR/候选池目录、
+Git 跟踪文件、网表、放置、模型、JSON/CSV、日志及正在使用的文件。
+scratch 仅清理能找到已结束归档 counterpart 的旧 v0–v3 运行产物。
+这是一轮保守清理，不保证释放全部旧目录空间；不明用途文件一律保留。
+
+先停掉旧版本流水线（当前 v6.7 可以继续），在 Linux 服务器执行只读预览：
+
+```bash
+cd "$TAILCOMPILE_REPO"
+mkdir -p logs
+cleanup_plan="$TAILCOMPILE_REPO/logs/storage_cleanup_$(date +%Y%m%d_%H%M%S).json"
+python3 experiments/vtr/storage_cleanup.py plan \
+  --repo "$TAILCOMPILE_REPO" \
+  --scratch "${TAILCOMPILE_SCRATCH:-$TAILCOMPILE_REPO/vtr_work}" \
+  --plan "$cleanup_plan"
+```
+
+核对 `allocated_GiB`、按版本/类型的 summaries 及清单内绝对路径后，再执行：
+
+```bash
+python3 experiments/vtr/storage_cleanup.py apply \
+  --repo "$TAILCOMPILE_REPO" --plan "$cleanup_plan"
+```
+
+apply 再次检查文件、完成状态、Git 跟踪及活跃进程；变化的文件跳过。
+清单和逐文件删除日志/receipt 保存在 logs，归档运行附加 `payload_pruned.json`。
+删除是永久 unlink，不进回收站；原始 route/RRG 如需恢复，必须重跑 VPR。
+清理不等价于完整归档：保留的统计不能替代已删除的原始布线做新分析。
+工具版本或输入发生变化时重新生成清单。复用旧成功运行不应依赖已裁剪的大文件，
+如需重新解析它们，请明确重新运行，而不要把缺文件解释为新的实验失败。
+
 ## Git 同步
 
 ```bash
