@@ -42,7 +42,8 @@ C/D 在相同的合法化前 hook 执行相同修正：复用 v6.6 完整 AP-blo
 - 默认每个设计取旧 Default-only screen 的首个成功宽度 ±30、步长10，七档宽度；
   新 seeds 251–255。每个宽度生成自己的 width-conditioned `.fplace`，每个 seed 复用它。
   Wmin 是同一算法在不同给定宽度下的网格最小成功值，不是固定坐标的纯 route-only Wmin。
-- 六个设计共 840 次主扫描，另做 840 次串行配对计时。主扫描并行；正式 runtime 不用并行扫描的墙钟时间。
+- 六个设计共840次主扫描。计时使用共同成功的边界子集，默认最多180个独立任务，
+  共享条件去重、已有记录复用后更少；正式 runtime 仍单任务串行测量。
 - 输出逐 seed 网格 Wmin、删失/非单调性、W80、共同成功条件下的线长/CPD 和分口径 speedup。
 
 原生 `.fplace` 入口会跳过 GP，并改变 RAM grouping 路径。因此本轮测量的是 GNN→VPR
@@ -120,9 +121,10 @@ echo "PID=$!"
 bash experiments/vtr/tailcompile_v67/run_pipeline.sh status
 ```
 
-当前验收：expected_per_phase=840，phase_status_counts 分别列出扫描/计时各状态，生成
-`resume_evaluation_report.json`。complete=true 表示预算内任务已归档、报告已生成；
-允许包含 timeout 与明确标注的跳过计时，不表示所有 Wmin 都已确定。
+当前验收：expected_per_phase=840 保留表示原始扫描空间，expected_selected_timing 为真正需要的计时数量。
+`timing_selection_progress` 列出 expected、accounted、remaining，不要求计时填满840个条件。
+生成 `resume_evaluation_report.json`。complete=true 表示扫描已归档、选中计时已完成且已生成报告；
+允许扫描包含 timeout，不表示所有 Wmin 都已确定。
 `all_scan_route_outcomes_known` 单独说明扫描中是否仍有未知结果。
 完成任务不等于结果有收益；必须查看 W80/Wmin、删失、QoR 和对应计时口径。
 完整任务可复用；中断/超时/环境失败保留原始日志并拒绝当成布线失败。不要清空整批有效结果。
@@ -147,8 +149,8 @@ echo "PID=$! LOG=$log"
 ```
 
 本次升级无需重新编译 VPR，也不需要重新生成 .fplace。
-timeout 只终止当前进程组，其他任务和后续阶段继续。默认扫描超时的条件不再执行昂贵的串行计时，
-记录 `not_run_after_scan_timeout`，没有伪造计时值，也不参与加速比。
+timeout 只终止当前进程组，其他任务和后续阶段继续。精选模式只启动扫描共同成功的条件；
+扫描失败/超时和未选中宽度不再重复计时。原有全量计时和跳过记录保留，不伪造计时值。
 成功率给出上下界；超时位于首个成功宽度之下时，Wmin 报告为未确定，另给已观察最小成功宽度。
 报告列出每个设计/方法的超时数与每项 runtime 比较排除的条件，不能只看共同成功子集的 speedup。
 
@@ -160,7 +162,7 @@ timeout 只终止当前进程组，其他任务和后续阶段继续。默认扫
 
 - `TAILCOMPILE_V67_RETRY_TIMEOUTS=1`：重跑已超时 case；完成的 case 仍复用。
 - `TAILCOMPILE_V67_RETRY_FAILED=1`：重跑其他错误；没有完整结果的中断任务自动归档重试。
-- `TAILCOMPILE_V67_TIME_SCAN_TIMEOUTS=1`：即使扫描超时，也独立进行串行计时。
+- `TAILCOMPILE_V67_TIME_SCAN_TIMEOUTS`：旧编排兼容参数，不扩大当前精选范围。
 - `TAILCOMPILE_V67_TIMEOUT`：当前预算，可提高，禁止降低后复用较大预算数据。
 - `TAILCOMPILE_V67_HEARTBEAT`：进度日志间隔，默认120秒。
 
@@ -171,20 +173,61 @@ timeout 只终止当前进程组，其他任务和后续阶段继续。默认扫
 `resume_sessions/*.json` 记录编排/观测代码 hash 与续跑参数。旧成功 case 的旧计时原样保留，
 新增 case 的观测开销也包含在时间里；这是复用旧批次的现实限制。
 
+## 先汇总扫描，再做精选计时
+
+当前 `evaluate` 顺序为：复用/补齐扫描 → scan-report → timing-plan → 精选 timing → report。
+Wmin 不需要等待任何新的 VPR。`scan_report.json` 给出四路线逐 seed Wmin、W80和五组配对差异，
+继续保留超时造成的未知范围。扫描失败与超时也全部参与这份报告。
+
+计时计划 `timing_selection.json` 只读取扫描的布通状态：按原始 seed 顺序固定前三个，
+对每个设计/比较/seed 选择最小共同成功宽度。没有共同成功条件时明确列出该 seed，
+不会偷偷改用其他 seed，也不看耗时挑选有利结果。同一任务被多个对照使用时去重。
+最终 runtime 比较严格限于计划内配对，计划外旧计时保留但不混入本轮平均值。
+因此结论仅针对这些共同成功边界条件，不能外推为全部宽度或整个设计集的加速。
+
+服务器若仍在跑旧全量 timing，先更新并停止同一输出目录的控制器，再生成扫描报告与计时计划：
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+export TAILCOMPILE_V67_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v67/runs/abcd_002"
+bash experiments/vtr/tailcompile_v67/run_pipeline.sh stop
+# 输出 still_active=[] 后再启动下一阶段；已完成 case 保留，活动 case 会记为 interrupted。
+bash experiments/vtr/tailcompile_v67/run_pipeline.sh scan-report
+bash experiments/vtr/tailcompile_v67/run_pipeline.sh timing-plan
+mkdir -p logs
+log="logs/v67_selected_$(date +%Y%m%d_%H%M%S).log"
+nohup bash experiments/vtr/tailcompile_v67/run_pipeline.sh evaluate >"$log" 2>&1 </dev/null &
+echo "PID=$! LOG=$log"
+```
+
+`stop` 通过 /proc 只匹配同一输出目录的 resume.py run/timing 控制器，发送 SIGTERM 并最多等待30秒；
+不终止其他项目或其他输出目录。活动 case 的旧尝试在下次执行前归档；成功 case 不会被重跑。
+`scan-report` 允许在旧计时仍持有锁时只读汇总；`timing-plan` 和运行阶段仍使用锁。
+
+可选 `TAILCOMPILE_V67_TIMING_SEEDS=3`、`TAILCOMPILE_V67_TIMING_WIDTHS=1`。
+修改这些参数或更新扫描后，需显式 `TAILCOMPILE_V67_REPLAN_TIMING=1`，原计划将保存到
+`timing_selection_history/`；原始扫描/计时文件不删除。计划外 missing 不会阻止精选实验完成。
+
+可先提交 `scan_report.json`、plan.json、abcd_protocol.json 及扫描 trial.json 供 Wmin 验收，
+随后再同步精选 runtime；不必等待计时结束才判断布线宽度收益。
+
 ## Git 同步
 
 ```bash
-git add -- experiments/vtr/tailcompile_v67/runs/abcd_001/signature.json \
-  experiments/vtr/tailcompile_v67/runs/abcd_001/plan.json \
-  experiments/vtr/tailcompile_v67/runs/abcd_001/abcd_protocol.json \
-  experiments/vtr/tailcompile_v67/runs/abcd_001/resume_evaluation_report.json \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/generation.json' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/trial.json' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/refined.selection.json' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/outcome.json' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/stages.jsonl' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/**/worker.events.jsonl' \
-  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_001/resume_sessions/*.json'
+git add -- experiments/vtr/tailcompile_v67/runs/abcd_002/signature.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_002/plan.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_002/abcd_protocol.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_002/scan_report.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_002/timing_selection.json \
+  experiments/vtr/tailcompile_v67/runs/abcd_002/resume_evaluation_report.json \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_002/**/generation.json' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_002/**/trial.json' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_002/**/refined.selection.json' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_002/**/outcome.json' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_002/**/stages.jsonl' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_002/**/worker.events.jsonl' \
+  ':(glob)experiments/vtr/tailcompile_v67/runs/abcd_002/resume_sessions/*.json'
 git commit -m "Add ABCD placement and decomposed runtime results"
 git push origin main
 ```

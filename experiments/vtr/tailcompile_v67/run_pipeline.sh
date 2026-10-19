@@ -7,7 +7,7 @@ out="${TAILCOMPILE_V67_OUT:-$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v67/ru
 mkdir -p "$out"
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
-if [[ "$phase" != status ]]; then
+if [[ "$phase" != status && "$phase" != stop && "$phase" != scan-report ]]; then
   exec 9>"$out/.lock"
   flock -n 9 || { echo "Another v6.7 phase is active"; exit 1; }
 fi
@@ -19,8 +19,11 @@ run() {
   [[ "${TAILCOMPILE_V67_RETRY_TIMEOUTS:-0}" == 1 ]] && extra+=(--retry-timeouts)
   [[ "${TAILCOMPILE_V67_RETRY_FAILED:-0}" == 1 ]] && extra+=(--retry-failed)
   [[ "${TAILCOMPILE_V67_TIME_SCAN_TIMEOUTS:-0}" == 1 ]] && extra+=(--time-scan-timeouts)
+  [[ "${TAILCOMPILE_V67_REPLAN_TIMING:-0}" == 1 ]] && extra+=(--replan-timing)
   python3 -u experiments/vtr/tailcompile_v67/resume.py "$1" --out "$out" "${extra[@]}" \
     --heartbeat "${TAILCOMPILE_V67_HEARTBEAT:-120}" \
+    --timing-seed-count "${TAILCOMPILE_V67_TIMING_SEEDS:-3}" \
+    --timing-width-count "${TAILCOMPILE_V67_TIMING_WIDTHS:-1}" \
     --jobs "${TAILCOMPILE_V67_JOBS:-8}" --timeout "${TAILCOMPILE_V67_TIMEOUT:-7200}" \
     --device "${TAILCOMPILE_V67_DEVICE:-cpu}" \
     --checkpoint "${TAILCOMPILE_GENERATOR_CHECKPOINT:-$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v3_training/model_width_conditioned/ranker.pt}" \
@@ -28,9 +31,9 @@ run() {
     --screen "${TAILCOMPILE_V67_SCREEN:-$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v5/runs/holdout_001/screen/runs}"
 }
 case "$phase" in
-  generate|run|timing|report|status) run "$phase" ;;
-  evaluate) run run; run timing; run report ;;
-  all) run generate; run run; run timing; run report ;;
-  *) echo "usage: $0 generate|evaluate|all|status"; exit 2 ;;
+  generate|run|scan-report|timing-plan|timing|report|status|stop) run "$phase" ;;
+  evaluate) run run; run scan-report; run timing-plan; run timing; run report ;;
+  all) run generate; run run; run scan-report; run timing-plan; run timing; run report ;;
+  *) echo "usage: $0 generate|evaluate|scan-report|timing-plan|timing|report|all|status|stop"; exit 2 ;;
 esac
 echo "v6.7 $phase complete"

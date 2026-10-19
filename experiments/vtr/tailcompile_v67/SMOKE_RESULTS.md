@@ -29,3 +29,10 @@ resume.py 的9项回归在 WSL 全部通过，包括真实进程超时、超时�
 local_search_start、local_search_complete、worker_complete；再次启动均为 reused，未重跑 VPR。
 本地证据：/home/phoenix/vtr_work/v67_resume_smoke_001/smoke_summary.json。
 新入口不改动冻结算法及 hook，无需重编译。该测试只证明续跑/日志接口可用。
+
+## 2026-10-19 精选计时验证
+
+test_timing_scope.py 的6项和更新后的 test_resume.py 的9项在 WSL 通过。
+覆盖：扫描立即汇总、不读取 runtime 选样、固定 seeds 与边界宽度、共享任务去重、
+只执行选中任务、复用既有成功计时、显式重规划保留旧计划，以及停止命令仅影响同一输出目录。
+新的完整性判断只要求扫描已归档和精选计时已完成，不再等待计划外840个 timing 条件。

@@ -111,8 +111,10 @@ class ResumeTests(unittest.TestCase):
         c=next(w for w in report['width_results'] if w['method']=='C_default_refine')
         self.assertIsNone(c['w80'])
         pair=next(p for p in report['runtime_comparisons'] if p['candidate']=='C_default_refine' and p['baseline']=='A_default')
-        self.assertEqual(pair['joint_success_pairs'],6)
-        self.assertEqual(sum(pair['excluded_pairs'].values()),3)
+        self.assertEqual(pair['joint_success_pairs'],3)
+        self.assertEqual(pair['selected_pair_count'],3)
+        self.assertEqual(sum(pair['excluded_pairs'].values()),0)
+        self.assertGreater(report['timing_selection_progress']['existing_records_outside_scope'],0)
 
     @unittest.skipUnless(os.name=='posix','real process groups require Linux/WSL')
     def test_execute_finishes_other_cases_after_timeout(self):
