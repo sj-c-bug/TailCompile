@@ -271,6 +271,62 @@ GNN 的生成分项复用已有 generation.json 测量，没有在并发 VPR 负
 另保留 trial.json、launch_affinity.json、worker.events.jsonl 以核验绑定与断点。
 原始 VPR 大文件仍留在服务器。
 
+## 优先完成 A/B-only runtime（不等待局部搜索）
+
+独立 `ab_runtime.py` 只测 A_default 和 B_gnn，完全不运行 C/D 的 hook worker。
+复用原冻结的输入、GNN `.fplace` 以及 timing_selection 中的 A/B 配对宽度/seeds；
+不是重新搜索 W_min，也不重新推理。原 ABCD 脚本和指纹不变。
+使用新的 `ab_` 运行名，不复用磁盘异常波次或混合 ABCD 负载的旧耗时。
+相同实例/boot/代码/输入下重启可复用完整批次；不完整批次保留到 `_attempts` 后整体重测。
+
+先检查输出目录所在文件系统和用户/项目配额。`Disk quota exceeded` 可能是空间或 inode 配额，
+并不等于整个文件系统满；在其他盘腾出空间未必解决这里的限制。
+`df` 有剩余空间也不能证明 quota 足够。运行中遇到配额故障不应归类为模型不可布线。
+
+```bash
+df -h "$TAILCOMPILE_V67_OUT"
+df -i "$TAILCOMPILE_V67_OUT"
+if command -v quota >/dev/null 2>&1; then quota -s; fi
+```
+
+确认可写配额充足、旧 ABCD 任务已停止后，在已激活环境的 CPU 实例：
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+export TAILCOMPILE_AB_RUN=ab_c8_001
+export TAILCOMPILE_AB_JOBS=8
+
+python3 experiments/vtr/tailcompile_v67/ab_runtime.py plan \
+  --out "$TAILCOMPILE_V67_OUT" --run-name "$TAILCOMPILE_AB_RUN" \
+  --concurrency "$TAILCOMPILE_AB_JOBS"
+
+mkdir -p logs
+log="$TAILCOMPILE_REPO/logs/v67_${TAILCOMPILE_AB_RUN}_$(date +%Y%m%d_%H%M%S).log"
+nohup python3 -u experiments/vtr/tailcompile_v67/ab_runtime.py evaluate \
+  --out "$TAILCOMPILE_V67_OUT" --run-name "$TAILCOMPILE_AB_RUN" \
+  --concurrency "$TAILCOMPILE_AB_JOBS" >"$log" 2>&1 </dev/null &
+echo "PID=$! LOG=$log"
+```
+
+可用16并发，但必须设置新的 `ab_c16_001` 名字，不把不同并发配置混算。
+OS/VM 物理核数与 cgroup CPU quota 不足时拒绝执行；目录的剩余磁盘量仅为快照，
+程序无法从它判断项目/用户 quota，必须另行确认。
+协议沿用同核配对、AB/BA 轮换和半批次屏障，尾批较低并发单独统计。
+也遵守原 `.lock`，防止与同目录的 ABCD 流水线同时运行。
+
+```bash
+python3 experiments/vtr/tailcompile_v67/ab_runtime.py status \
+  --out "$TAILCOMPILE_V67_OUT" --run-name "$TAILCOMPILE_AB_RUN"
+```
+
+状态输出包含单项 success/other_failure/running/missing 数量，而不只有 waves_complete。
+正常完成后 `timing_parallel/$TAILCOMPILE_AB_RUN/parallel_report.json` 中 `complete=true`。
+报告的 `vpr_wall_speedup` 是 A/B；`scope_speedup` 分别计入现有 generation.json 中记录的
+推理/解码/生成等成本，RRG 编码排除与否沿用原 warm/cold 分项口径。
+这些生成成本不是本次并发条件下重新测量的；该限制在报告中保留。
+加速比 >1 才表示 B 更快；是否有收益必须由结果判断，同时检查 wirelength/CPD。
+
 ## 旧实验磁盘清理
 
 不要按版本整目录删除：当前默认输入仍来自 v5 的 `holdout_001/inputs`，
