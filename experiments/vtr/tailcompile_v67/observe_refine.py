@@ -8,6 +8,8 @@ import time
 
 def emit(path, stage, **details):
     row=dict(stage=stage,unix_time=time.time(),pid=os.getpid(),**details)
+    if stage=='worker_start' and hasattr(os,'sched_getaffinity'):
+        row['allowed_cpus']=sorted(os.sched_getaffinity(0))
     with path.open('a',encoding='utf-8') as log:
         log.write(json.dumps(row)+'\n');log.flush()
     print('TAILCOMPILE_WORKER_STAGE '+json.dumps(row),flush=True)

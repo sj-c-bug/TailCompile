@@ -36,3 +36,14 @@ test_timing_scope.py 的6项和更新后的 test_resume.py 的9项在 WSL 通过
 覆盖：扫描立即汇总、不读取 runtime 选样、固定 seeds 与边界宽度、共享任务去重、
 只执行选中任务、复用既有成功计时、显式重规划保留旧计划，以及停止命令仅影响同一输出目录。
 新的完整性判断只要求扫描已归档和精选计时已完成，不再等待计划外840个 timing 条件。
+
+## 2026-10-19 受控并行计时接口
+
+新增 test_parallel_runtime.py 的5项测试：物理核/SMT与配额校验、同核配对和顺序轮换、
+中断批次归档、尾批负载分层、串行结果隔离，以及真实 Linux affinity/barrier/批次复用。
+全部在 WSL 通过。它们验证调度与记录，不证明方法的加速收益。
+
+真实 VPR SHA width100/seed251，以 CPU0 和 CPU2（不同 core ID）并行运行 A/D，然后 C/B。
+四条路线均 success；VPR 启动器的 allowed_cpus 与分配一致，C/D 的 worker 也分别只允许 CPU0/CPU2。
+本地证据：/home/phoenix/vtr_work/v67_parallel_smoke_001/smoke_summary.json。
+此测试复用历史输入，验证四路线核绑定与执行接口，不作为正式 runtime 对比。

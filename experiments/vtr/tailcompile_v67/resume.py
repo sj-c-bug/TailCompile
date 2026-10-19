@@ -105,6 +105,11 @@ def run_process(a,backend,identity,c,seed,method,folder):
     # libc line buffering flushes existing C++ hook/GP messages without rebuilding VPR.
     stdbuf=shutil.which('stdbuf')
     launched=[stdbuf,'-oL','-eL',*cmd] if stdbuf else cmd
+    if getattr(a,'pinned_cpu',None) is not None:
+        launched=[os.sys.executable,str(HERE/'affinity_exec.py'),'--cpu',str(a.pinned_cpu),
+                  '--audit',str(folder/'launch_affinity.json'),'--',*launched]
+    if getattr(a,'launch_barrier',None) is not None:a.launch_barrier.wait(timeout=120)
+    started_unix=time.time()
     start=time.monotonic();current='launch';offset=0;pending='';last_heartbeat=start;history=[]
     def event(stage,**details):
         item=dict(stage=stage,elapsed_seconds=time.monotonic()-start,**details)
@@ -154,6 +159,7 @@ def run_process(a,backend,identity,c,seed,method,folder):
     def metric(pattern):
         values=re.findall(pattern,text);return float(values[-1]) if values else None
     result=dict(signature=sig,design=c['design'],width=c['width'],seed=seed,method=method,
+        started_unix=started_unix,finished_unix=time.time(),
         status=status,process_returncode=code,wall_seconds=elapsed,command=cmd,launched_command=launched,
         phases=f.parse_vpr_log(text),local_refinement=selection,refinement_already_in_wall_time=True,
         last_observed_stage=current,stage_history=history,
@@ -161,8 +167,18 @@ def run_process(a,backend,identity,c,seed,method,folder):
         wirelength=metric(r'Total wirelength:\s*([\d.eE+-]+)'),
         cpd=metric(r'Final critical path delay \(least slack\):\s*([\d.eE+-]+)'),
         hook_env={k:v for k,v in env.items() if k.startswith('TC_GP_')})
+    if getattr(a,'pinned_cpu',None) is not None:
+        audit=folder/'launch_affinity.json'
+        result['cpu_affinity']=f.read(audit) if audit.exists() else None
+        if result['cpu_affinity'] is None or result['cpu_affinity']['allowed_cpus']!=[a.pinned_cpu]:
+            result['status']='other_failure'
+        events=folder/'worker.events.jsonl'
+        starts=[json.loads(line) for line in events.read_text().splitlines() if json.loads(line).get('stage')=='worker_start'] if events.exists() else []
+        if method in f.METHODS[2:] and result['status'] in ('success','unroutable'):
+            result['worker_cpu_affinity']=starts[0].get('allowed_cpus') if starts else None
+            if result['worker_cpu_affinity']!=[a.pinned_cpu]:result['status']='other_failure'
     f.write(folder/'trial.json',result)
-    event('trial_finished',status=status,last_observed_stage=current)
+    event('trial_finished',status=result['status'],last_observed_stage=current)
     return outcome(folder,result,reused=False)
 
 
@@ -403,7 +419,8 @@ def request_stop(a):
             args=(entry/'cmdline').read_bytes().decode(errors='replace').split('\0')
             if '--out' not in args:continue
             if Path(args[args.index('--out')+1]).resolve()!=a.out.resolve():continue
-            scripts=[i for i,arg in enumerate(args) if arg.replace('\\','/').endswith('/tailcompile_v67/resume.py')]
+            scripts=[i for i,arg in enumerate(args) if any(arg.replace('\\','/').endswith('/tailcompile_v67/'+name)
+                for name in ('resume.py','parallel_runtime.py'))]
             if not scripts or args[scripts[0]+1] not in ('run','timing'):continue
             os.kill(int(entry.name),signal.SIGTERM);matched.append(int(entry.name))
         except (OSError,ValueError,IndexError):continue
