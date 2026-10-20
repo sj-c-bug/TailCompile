@@ -1,5 +1,7 @@
 # TailCompile 当前 GNN 定义
 
+> 2026-10-20 更新：第 1–11 节保留 v3/v4 历史定义；新的细粒度层次生成器和原生 GP 温启动见第 12 节及 v6.8 README。
+
 > 文档状态：与当前 `tailcompile_v3.py`、`train_tailcompile_v3_ranker.py` 和
 > `prepare_tailcompile_v3_training.py` 的实现对齐。v4 没有重新训练 GNN，
 > 而是使用这个冻结 v3 checkpoint 生成起始预绑定，再进行确定性供需风险搜索。
@@ -313,3 +315,17 @@ v4 确定性局部搜索分别优化 tail/mean/no-risk 目标。
 
 它当前并不直接预测最终拥塞，不直接输出合法 `.fplace`，也不直接对原始
 RRG 全图进行 message passing。
+
+## 12. v6.8 更新：层次生成器与原生 GP 温启动
+
+历史版本的图/评分器说明保留在上文。本次新增的实际部署模型是
+`experiments/vtr/tailcompile_v68/model.py::HierarchicalInitializer`，不是原 v3 4×4 生成器，也不是 v6 候选评分器。
+
+- 逻辑端节点为 **pre-GP APBlock/molecule**，每个节点保留其全部原子、原语资源需求与固定状态；不读取移动块的已有放置坐标。
+- 器件端叶节点默认每 **4×4 tile** 一个区域，区域数随器件面积增长。共享方向/segment wire pools 提供局部上下文，再经过可变深度的上行聚合与下行传播。
+- 生成 head 学习 APBlock 到细区域的匹配，以及依赖所选区域/器件/channel width 的连续坐标。五维容量仅作上界，不强制均摊，也不宣称 packing 合法。
+- 训练标签为 train/validation 原生 GP 教师坐标；后续只用 train 家族的真实 warm-start VPR 反馈选择改进初值，微调同一个生成器。final_test 不提供教师或事后候选选择。
+- 输出 `init.ap.tsv` 使用无损原生连续坐标 `[0,W)×[0,H)`，由 `TC_GP_INIT` 消费；`init.fplace` 是辅助 floor 导出，不用于 `--read_flat_place` 跳过 GP。
+- 接入后保留 VPR 原生 GP、合法化、详细布局、布线。训练重建质量不等同于布线收益，验收仍以独立设计族的观测最小成功宽度、时序/线长和完整分项耗时为准。
+
+完整字段、CPU/GPU 阶段、容量代理局限与服务器运行方式见 [v6.8 README](experiments/vtr/tailcompile_v68/README.md)。

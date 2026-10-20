@@ -37,6 +37,20 @@ def save(path, value):
 
 def region_at(device, x, y):
     # Interior regions extend to the nearest perimeter for fixed IO terminals.
+    # Fixed-tile v6.8 leaves have regular row-major geometry. Avoid scanning R
+    # regions for every one of W*H wire coordinates in build_supply: that would
+    # become quadratic in device area as leaf resolution increases. Ceil keeps
+    # the original lower-index tie break at half-integer inter-leaf boundaries.
+    size = device.get('tile_size')
+    grid = device.get('region_grid')
+    if isinstance(size, int) and size > 0 and isinstance(grid, dict):
+        columns, rows = grid.get('columns'), grid.get('rows')
+        if columns and rows and columns * rows == len(device['regions']):
+            if not math.isfinite(x) or not math.isfinite(y):
+                raise ValueError('region coordinates must be finite')
+            column = min(columns - 1, max(0, math.ceil((x - .5) / size) - 1))
+            row = min(rows - 1, max(0, math.ceil((y - .5) / size) - 1))
+            return row * columns + column
     return min(range(len(device['regions'])), key=lambda i: (
         max(device['regions'][i]['x_low'] - x, 0, x - device['regions'][i]['x_high']) ** 2
         + max(device['regions'][i]['y_low'] - y, 0, y - device['regions'][i]['y_high']) ** 2, i))
