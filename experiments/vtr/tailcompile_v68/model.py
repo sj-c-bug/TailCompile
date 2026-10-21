@@ -54,6 +54,20 @@ def pool_mean(x, membership, count):
     return total / sizes[:, None]
 
 
+def coordinate_interior(bounds):
+    """Inset float32 leaves to respect native lower-index boundary ownership."""
+    low = bounds[:, [0, 2]].float().clone()
+    high = bounds[:, [1, 3]].float().clone()
+    original_low, original_high = low.clone(), high.clone()
+    for _ in range(4):
+        low = torch.nextafter(low, original_high)
+        high = torch.nextafter(high, original_low)
+    low = torch.where(original_low == 0, original_low, low)
+    if not (low < high).all():
+        raise ValueError('region bounds have no representable float32 interior')
+    return low, high
+
+
 class GraphLayer(nn.Module):
     """Directed weighted messages; no CPU temporary allocation on CUDA."""
     def __init__(self, hidden):
@@ -287,7 +301,8 @@ class HierarchicalInitializer(nn.Module):
         xy = low + (high - low) * local
         # Leaves own half-open spatial intervals.  Float32 sigmoid saturation or
         # sampling must not place a node on the next leaf/device's upper edge.
-        xy = torch.maximum(low, torch.minimum(torch.nextafter(high, low), xy))
+        safe_low, safe_high = coordinate_interior(bounds)
+        xy = torch.maximum(safe_low.to(xy), torch.minimum(safe_high.to(xy), xy))
         fixed = data.get('fixed_xy', torch.zeros_like(xy))
         if 'movable' in data:
             valid = valid & data['movable'].bool()
@@ -304,25 +319,37 @@ class HierarchicalInitializer(nn.Module):
                     logic_embedding=logic, region_embedding=regions)
 
     def _supervised_chunk(self, logic, regions, demand, target, capacity):
+        if (demand > capacity[target] + 1e-6).any():
+            raise ValueError('teacher AP demand exceeds individual region proxy capacity; '
+                             'use resource-aware derived supervision, not raw GP leaf labels')
         logits = self.matching_logits(logic, regions, demand, capacity)
+        if torch.isnan(logits).any() or torch.isposinf(logits).any():
+            raise FloatingPointError('NaN/Inf matching scores, distinct from masked capacity exclusions')
         if not torch.isfinite(logits.gather(1, target[:, None])).all():
-            raise ValueError('teacher AP demand exceeds individual region proxy capacity')
+            raise FloatingPointError('nonfinite teacher matching scores after capacity validation')
         return (F.cross_entropy(logits, target, reduction='sum'),
                 logits.softmax(-1).T @ demand)
 
     def loss(self, data, teacher_region, teacher_xy, mask=None, *,
              coordinate_weight=5., capacity_weight=.1, geometry_weight=.1,
-             return_details=False):
+             return_details=False, geometry_teacher_xy=None):
         """Supervise actual deployed region/coordinate generator without dense NxR.
 
         Region CE and region-conditioned coordinate regression use teacher nodes.
         Expected regional overflow is penalized; unused capacity is not penalized.
-        Optional edge-length protection uses teacher geometry and criticality,
+        Optional edge-length protection uses raw teacher geometry and criticality,
         not routed-test data.  Timing criticality defaults to neutral when absent.
+        Resource-projected xy supervises coordinates only; geometry_teacher_xy
+        preserves the original VPR teacher for edge-length protection.
         """
         logic, regions = self.encode(data)
         teacher_region = teacher_region.to(logic.device).long()
         teacher_xy = teacher_xy.to(logic)
+        geometry_teacher_xy = (teacher_xy if geometry_teacher_xy is None else
+                               geometry_teacher_xy.to(logic))
+        if (geometry_teacher_xy.shape != teacher_xy.shape or
+                not torch.isfinite(geometry_teacher_xy).all()):
+            raise ValueError('geometry teacher coordinates must be finite and match teacher xy')
         mask = (data.get('movable', torch.ones(len(logic), device=logic.device,
                                              dtype=torch.bool)) if mask is None else mask)
         mask = mask.to(logic.device).bool() & (teacher_region >= 0)
@@ -373,7 +400,7 @@ class HierarchicalInitializer(nn.Module):
             edges = mask[src] & mask[dst]
             if edges.any():
                 predicted = (xy[src[edges]] - xy[dst[edges]]).abs().sum(-1)
-                target = (teacher_xy[src[edges]] - teacher_xy[dst[edges]]).abs().sum(-1)
+                target = (geometry_teacher_xy[src[edges]] - geometry_teacher_xy[dst[edges]]).abs().sum(-1)
                 weight = data['logic_weight'][edges].clamp_min(0)
                 if 'logic_criticality' in data:
                     weight = weight * (1 + data['logic_criticality'][edges].clamp_min(0))
@@ -434,8 +461,9 @@ class HierarchicalInitializer(nn.Module):
             selected = assignment.to(xy.device).clamp_min(0)
             bounds = data['region_bounds'][selected]
             low, high = bounds[:, [0, 2]], bounds[:, [1, 3]]
+            safe_low, safe_high = coordinate_interior(bounds)
             noise = torch.randn(xy.shape, generator=generator).to(xy)
-            perturbed = torch.maximum(low, torch.minimum(torch.nextafter(high, low),
+            perturbed = torch.maximum(safe_low.to(xy), torch.minimum(safe_high.to(xy),
                 xy + coordinate_noise_std * (high - low) * noise))
             active = assignment.to(xy.device) >= 0
             if 'movable' in data:

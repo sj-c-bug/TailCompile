@@ -48,6 +48,44 @@ Default 的独立 calibration seeds 301/302 定位边界，宽度步长默认 4�
 预训练为同一条件选择一个原生 GP 教师，不平均不相容/对称的坐标。teacher 只来自 train/validation；最终测试只导出无移动坐标的结构图。
 测试边界可由 Default 校准，但测试 GP 坐标、布线标签不能进入训练或候选选择。
 
+### 2026-10-21：教师粗坐标与资源叶区域的接口修复
+
+服务器已发现 `bnn/w168` 的 AP 节点 50154：需求为 1 DSP，但原生 GP 坐标归属的 leaf 437 的 DSP 容量为 0，另有 100 个 leaf 能单独容纳该节点。`post_gp_teacher` 在 full legalizer 前导出，不能把连续粗坐标所属 leaf 误当成物理资源合法分配。
+
+训练现在从冻结原始标签派生“单节点资源代理可容纳”的监督：
+
+- 原区域可容纳的节点保持区域标签；仅冲突的 movable 节点选择距原坐标最近的可容纳 leaf，依次按点到矩形距离、中心距离、leaf id 确定性打破平局。距离使用器件宽/高换算为物理 tile 单位。
+- 坐标移到目标 leaf 的数值安全内部，避免边界舍入后又归属旧 leaf。固定节点不移动；原始数据、图、RRG 和容量上限不改变。
+- 原始 VPR 坐标继续用于 geometry 线长保护；派生坐标只用于区域/坐标监督。投影不是重新运行 VPR，也不保证聚合 packing 合法；区域总量仍由训练 overflow 罚项和部署容量解码器处理。
+- `models/pretrain/supervision_audit.json` 记录每设计/宽度/split 的冲突数量、资源、投影位移分位数、聚合 overflow 前后值与 raw/derived target 哈希。只在首次使用条件时按块派生，不在每个 epoch 重复，也不把教师放入图输入。
+- 没有任何可容纳 leaf 时明确失败，不扩大容量、不跳过硬资源标签。NaN/Inf 与容量冲突分别报错。大量远距离投影意味着教师与约束存在明显偏差，不能把派生教师重构误差当成原 VPR 布局重现或布线收益。
+
+无需重跑 CPU `prepare` 或重新编译 VTR。但监督定义改变，旧 `training_signature.json/latest.pt` 不允许直接续训。确认旧 GPU 训练已经退出后，在同一个 cohort 中**只归档旧预训练尝试**，保留全部 CPU 数据：
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+export TAILCOMPILE_V68_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v68/runs/hier_init_001"
+
+flock -n "$TAILCOMPILE_V68_OUT/.lock" bash -c '
+  old="$1/models/pretrain"
+  if [[ -d "$old" ]]; then
+    archived="${old}_before_resource_fix_$(date +%Y%m%d_%H%M%S)"
+    [[ ! -e "$archived" ]] || exit 1
+    mv -- "$old" "$archived"
+    echo "Archived old training attempt: $archived"
+  fi
+' bash "$TAILCOMPILE_V68_OUT"
+
+# 上一步成功后再启动；若提示锁被占用，不要另开第二份训练。
+mkdir -p logs
+log="logs/v68_train_resource_fix_$(date +%Y%m%d_%H%M%S).log"
+nohup bash experiments/vtr/tailcompile_v68/run_pipeline.sh train >"$log" 2>&1 </dev/null &
+echo "PID=$! LOG=$log"
+```
+
+这是可恢复的同目录归档，不删除旧模型记录；只需在迁移训练定义时执行一次。新定义下正常中断仍原目录运行 `train`，从新的 `latest.pt` 恢复，不要反复归档。
+
 真实反馈阶段在 **train** 设计上采样 8 个实际生成器初值（其中 1 个无噪声），用同一 warm-start VPR 流程和多 seeds 采集结果。
 同时要求不损失成功数、CPD/线长通过预先冻结的 3% guard，才将有收益的初始化回灌到**同一个生成器**做改进蒸馏，而不是另训一个选择器。
 新布通样本没有同宽 Default QoR 时，用最近较高宽度的成功训练教师作参考，明确记录这种局限，不伪造失败运行 CPD。
@@ -139,6 +177,7 @@ export TAILCOMPILE_V68_JOBS=32
 bash experiments/vtr/tailcompile_v68/run_pipeline.sh status
 python3 experiments/vtr/tailcompile_v68/test_data.py
 python3 experiments/vtr/tailcompile_v68/test_model.py
+python3 experiments/vtr/tailcompile_v68/test_supervision.py
 python3 experiments/vtr/tailcompile_v68/test_pipeline.py
 python3 experiments/vtr/tailcompile_v68/test_concurrency.py
 python3 experiments/vtr/tailcompile_v68/test_hook.py

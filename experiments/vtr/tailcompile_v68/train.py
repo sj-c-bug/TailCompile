@@ -19,8 +19,9 @@ from collections import OrderedDict
 os.environ.setdefault('KMP_DUPLICATE_LIB_OK','TRUE')
 import torch
 
-from common import emit, freeze, read, sha, write
+from common import emit, fingerprint, freeze, read, sha, write
 from model import HierarchicalInitializer, SCHEMA, to_device
+from supervision import SUPERVISION_SCHEMA, project_teacher
 
 
 def weights_sha(state):
@@ -103,27 +104,40 @@ def train(a):
     if not validation and not a.allow_no_validation:
         raise ValueError('Validation families required; --allow-no-validation is a smoke-test-only override')
     a.out.mkdir(parents=True,exist_ok=True)
-    signature=dict(schema=SCHEMA,dataset_sha256=sha(a.dataset),
+    signature=dict(schema=SCHEMA,supervision_schema=SUPERVISION_SCHEMA,
+        dataset_sha256=sha(a.dataset),
         feedback_sha256=sha(a.feedback) if a.feedback else None,
         initial_checkpoint_sha256=sha(a.initialize) if a.initialize else None,
         epochs=a.epochs,hidden=a.hidden,chunk_size=a.chunk_size,lr=a.lr,seed=a.seed,
-        code={p.name:sha(p) for p in [Path(__file__),Path(__file__).with_name('model.py')]})
+        code={p.name:sha(p) for p in [Path(__file__),Path(__file__).with_name('model.py'),
+                                    Path(__file__).with_name('supervision.py')]})
     freeze(a.out/'training_signature.json',signature)
     if (a.out/'training_report.json').exists():
         report=read(a.out/'training_report.json')
         if report['complete'] and sha(a.out/'generator.pt')==report['checkpoint_sha256']:
+            completed_audit_path=a.out/'supervision_audit.json'
+            if not completed_audit_path.exists():
+                raise ValueError('Completed training is missing its supervision audit')
+            completed_audit=read(completed_audit_path)
+            if (completed_audit.get('schema')!=SUPERVISION_SCHEMA or not completed_audit.get('complete')
+                    or fingerprint(completed_audit['conditions'])!=report['supervision_audit']['conditions_sha256']):
+                raise ValueError('Completed training supervision audit changed or is incomplete')
             emit('reuse_complete_training',path=str(a.out/'training_report.json'));return
     # Cache CPU graph objects only. Graphs move to GPU one at a time, rather than
     # retaining the complete 20-30 family dataset on an 80GB accelerator.
     graphs=OrderedDict()
-    def graph(row):
+    def cpu_graph(row):
         if row['graph'] not in graphs:
             graphs[row['graph']]=torch.load(row['graph'],map_location='cpu',weights_only=True)
             while len(graphs)>a.graph_cache:
                 graphs.popitem(last=False)
         graphs.move_to_end(row['graph'])
-        return to_device(graphs[row['graph']],device)
-    first=graph(train_rows[0])
+        return graphs[row['graph']]
+    def graph(row):
+        return to_device(cpu_graph(row),device)
+    # Only dimensions are needed for construction; do not keep the first whole
+    # GPU graph alive while later examples are on the accelerator.
+    first=cpu_graph(train_rows[0])
     if a.initialize:
         initial=torch.load(a.initialize,map_location=device,weights_only=True)
         if initial.get('schema')!=SCHEMA:
@@ -133,6 +147,7 @@ def train(a):
     else:
         model=HierarchicalInitializer(first['cluster_x'].shape[1],first['region_x'].shape[1],
             hidden=a.hidden,chunk_size=a.chunk_size,demand_width=first['demand'].shape[1]).to(device)
+    del first
     initial_weights=weights_sha(model.state_dict())
     optimizer=torch.optim.AdamW(model.parameters(),lr=a.lr,weight_decay=1e-4)
     start_epoch=1;history=[];best=math.inf
@@ -154,11 +169,71 @@ def train(a):
         validation_families=sorted(k for k,v in families.items() if v=='validation'),
         training_examples=len(train_rows),validation_examples=len(validation),
         real_feedback_targets=len(feedback['selected']) if feedback else 0)
-    def loss_for(row,details=False):
-        data=graph(row);target=row['target']
-        return model.loss(data,torch.tensor(target['teacher_region'],device=device),
-            torch.tensor(target['teacher_xy'],dtype=torch.float32,device=device),
-            torch.tensor(target['movable'],dtype=torch.bool,device=device),return_details=details)
+    # Teachers are supervisory outputs, never graph features.  Prepare them
+    # lazily on first use, on CPU, without modifying frozen inputs or keeping a
+    # second dataset of device graphs in accelerator memory.
+    projected_targets={}
+    audit_path=a.out/'supervision_audit.json'
+    condition_audits={}
+    if audit_path.exists():
+        previous_audit=read(audit_path)
+        if previous_audit.get('schema')!=SUPERVISION_SCHEMA:
+            raise ValueError('Supervision audit schema changed; use a new training output directory')
+        condition_audits={(r['design'],r['width'],r['split']):r
+                          for r in previous_audit.get('conditions',[])}
+    def save_supervision_audit(complete=False):
+        conditions=[condition_audits[k] for k in sorted(condition_audits)]
+        expected={(r['design'],r['width'],r['split']) for r in rows}
+        if complete and set(condition_audits)!=expected:
+            raise ValueError('Cannot complete training without an audit for every supervision condition')
+        counts=('movable_nodes','conflicted_nodes','reassigned_nodes','boundary_adjusted_nodes')
+        summary={name:sum(r[name] for r in conditions) for name in counts}
+        summary['max_displacement']=max((r['max_displacement'] for r in conditions),default=0.)
+        summary['mean_displacement']=(sum(r['mean_displacement']*r['movable_nodes']
+            for r in conditions)/max(summary['movable_nodes'],1))
+        resources={}
+        for condition in conditions:
+            for resource,count in condition['conflict_resources'].items():
+                resources[resource]=resources.get(resource,0)+count
+        summary['conflict_resources']=resources
+        value=dict(schema=SUPERVISION_SCHEMA,complete=complete,partial=not complete,
+            audited_conditions=len(conditions),expected_conditions=len(rows),
+            summary=summary,conditions=conditions,conditions_sha256=fingerprint(conditions),
+            raw_dataset_sha256=signature['dataset_sha256'],
+            note='CPU-only target projection; raw targets, graph features and inference capacity constraints are unchanged.')
+        write(audit_path,value)
+        return value
+    save_supervision_audit()
+    def loss_for(row,details=False,phase='train'):
+        try:
+            key=(row['design'],row['width'],row['split'])
+            if key not in projected_targets:
+                # Physical dimensions are supervision-only distance metadata,
+                # not teacher coordinates or extra model input features.
+                projection_data=dict(cpu_graph(row))
+                device_path=Path(row['graph']).with_name('device.json')
+                if device_path.exists():
+                    device_metadata=read(device_path)
+                    if 'grid_width' in device_metadata and 'grid_height' in device_metadata:
+                        projection_data['teacher_axis_scale']=[device_metadata['grid_width'],
+                                                               device_metadata['grid_height']]
+                target,audit=project_teacher(projection_data,row['target'],chunk_size=a.chunk_size)
+                projected_targets[key]=target
+                condition_audits[key]=dict(design=row['design'],width=row['width'],
+                    split=row['split'],**{k:v for k,v in audit.items() if k!='schema'})
+                save_supervision_audit()
+                emit('teacher_projection',design=row['design'],width=row['width'],
+                    split=row['split'],**audit)
+            data=graph(row);target=projected_targets[key]
+            return model.loss(data,torch.tensor(target['teacher_region'],device=device),
+                torch.tensor(target['teacher_xy'],dtype=torch.float32,device=device),
+                torch.tensor(target['movable'],dtype=torch.bool,device=device),return_details=details,
+                geometry_teacher_xy=torch.tensor(row['target']['teacher_xy'],dtype=torch.float32,device=device))
+        except Exception as error:
+            emit('training_example_error',design=row['design'],width=row['width'],
+                 split=row['split'],phase=phase,error=str(error))
+            raise RuntimeError(f'Generator {phase} failed: {row["design"]}/w{row["width"]} '
+                               f'({row["split"]}): {error}') from error
     began=time.monotonic()
     for epoch in range(start_epoch,a.epochs+1):
         model.train();order=list(train_rows);random.Random(a.seed+epoch).shuffle(order)
@@ -173,12 +248,15 @@ def train(a):
             total+=float(loss.detach());components.append(details)
         model.eval()
         with torch.no_grad():
-            validation_loss=statistics_mean([float(loss_for(r)) for r in validation]) if validation else total/len(order)
+            validation_loss=statistics_mean([float(loss_for(r,phase='validation')) for r in validation]) if validation else total/len(order)
         row=dict(epoch=epoch,train_loss=total/len(order),validation_loss=validation_loss,
             elapsed_seconds=round(time.monotonic()-began,2),
             mean_components={k:statistics_mean([d[k] for d in components]) for k in components[0]})
         history.append(row);emit('epoch',**row)
+        epoch_audit=save_supervision_audit()
         state=dict(schema=SCHEMA,model_config=model.config,model_state=model.state_dict(),
+            supervision_schema=SUPERVISION_SCHEMA,supervision_summary=epoch_audit['summary'],
+            supervision_audit_sha256=epoch_audit['conditions_sha256'],
             role='native_gp_initializer_generator',tile_size=a.tile_size,
             training_families=sorted(k for k,v in families.items() if v=='train'),
             validation_families=sorted(k for k,v in families.items() if v=='validation'),
@@ -192,7 +270,11 @@ def train(a):
         write(a.out/'progress.json',dict(complete=False,last_epoch=epoch,best_loss=best,history=history))
     final=torch.load(a.out/'generator.pt',map_location='cpu',weights_only=True)
     final_weights=weights_sha(final['model_state'])
-    report=dict(complete=True,schema=SCHEMA,role='actual_deployed_generator',
+    supervision_audit=save_supervision_audit(complete=True)
+    report=dict(complete=True,schema=SCHEMA,supervision_schema=SUPERVISION_SCHEMA,
+        supervision_audit=dict(path=str(audit_path),summary=supervision_audit['summary'],
+                               conditions_sha256=supervision_audit['conditions_sha256']),
+        role='actual_deployed_generator',
         epochs_completed=a.epochs,best_epoch=final['epoch'],best_validation_loss=best,
         history=history,checkpoint_sha256=sha(a.out/'generator.pt'),
         initial_weights_sha256=initial_weights,final_weights_sha256=final_weights,

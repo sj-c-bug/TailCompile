@@ -153,6 +153,54 @@ class PipelineTest(unittest.TestCase):
         self.assertTrue(report['complete'])
         self.assertIn('training_resumed', self.stdout.getvalue())
 
+    def test_resource_conflict_is_projected_once_per_condition_and_audited(self):
+        dataset, context, args = self.fixture()
+        original_targets = copy.deepcopy([r['target'] for r in dataset['examples']])
+        graph_hashes = {}
+        for row in dataset['examples']:
+            data = torch.load(row['graph'], weights_only=True)
+            data['capacity'][:, 3] = 0
+            data['capacity'][2, 3] = 1
+            # Movable DSP node originally taught to occupy leaf 1, which has no DSP.
+            data['demand'][1] = torch.tensor([0., 0., 0., 1., 0.])
+            torch.save(data, row['graph'])
+            row['graph_sha256'] = sha(row['graph'])
+            graph_hashes[row['graph']] = row['graph_sha256']
+        write(args.dataset, dataset)
+        dataset_hash = sha(args.dataset)
+        with patch.object(training, 'project_teacher', wraps=training.project_teacher) as project:
+            training.train(args)
+        self.assertEqual(project.call_count, 2)  # Not once per epoch/loss call.
+        audit = read(args.out / 'supervision_audit.json')
+        self.assertTrue(audit['complete'])
+        self.assertEqual(audit['audited_conditions'], 2)
+        self.assertEqual(audit['summary']['conflicted_nodes'], 2)
+        self.assertEqual(audit['summary']['reassigned_nodes'], 2)
+        self.assertTrue(all(c['distance_units'] == 'physical_tiles' for c in audit['conditions']))
+        self.assertTrue(all(c['raw_target_sha256'] != c['projected_target_sha256']
+                            for c in audit['conditions']))
+        report = read(args.out / 'training_report.json')
+        saved = torch.load(args.out / 'generator.pt', weights_only=True)
+        self.assertEqual(report['supervision_schema'], audit['schema'])
+        self.assertEqual(saved['supervision_audit_sha256'], audit['conditions_sha256'])
+        self.assertEqual(sha(args.dataset), dataset_hash)
+        self.assertEqual([r['target'] for r in read(args.dataset)['examples']], original_targets)
+        for path, expected in graph_hashes.items():
+            self.assertEqual(sha(path), expected)
+        audit['conditions'][0]['reassigned_nodes'] += 1
+        write(args.out / 'supervision_audit.json', audit)
+        with self.assertRaisesRegex(ValueError, 'audit changed'):
+            training.train(args)
+
+    def test_old_training_signature_is_not_silently_reused_after_projection_fix(self):
+        _, _, args = self.fixture()
+        legacy = dict(schema=SCHEMA, code={'model.py': 'old-hard-masked-supervision'})
+        write(args.out / 'training_signature.json', legacy)
+        with self.assertRaisesRegex(ValueError, 'Frozen inputs changed'):
+            training.train(args)
+        self.assertEqual(read(args.out / 'training_signature.json'), legacy)
+        self.assertFalse((args.out / 'latest.pt').exists())
+
     def test_dataset_and_evaluation_reject_final_test_family_leakage(self):
         dataset, context, args = self.fixture()
         leaked = copy.deepcopy(dataset)
