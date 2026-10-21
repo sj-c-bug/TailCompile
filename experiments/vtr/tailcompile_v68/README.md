@@ -89,10 +89,9 @@ bash experiments/vtr/tailcompile_v68/install_vtr.sh
 每次只运行当前阶段，完成后切换实例：
 
 ```bash
-# CPU 实例：按实际内存预算增加，VPR 每个任务内部始终 1 worker。
+# CPU 实例：默认 16；未单独设置的 PREPARE_JOBS/RR_JOBS 继承 JOBS。
+# VPR 每个任务内部始终 1 worker。资源足够时，可只把这一项改成 32。
 export TAILCOMPILE_V68_JOBS=16
-export TAILCOMPILE_V68_PREPARE_JOBS=2
-export TAILCOMPILE_V68_RR_JOBS=1
 mkdir -p logs
 log="logs/v68_prepare_$(date +%Y%m%d_%H%M%S).log"
 nohup bash experiments/vtr/tailcompile_v68/run_pipeline.sh prepare >"$log" 2>&1 </dev/null &
@@ -114,8 +113,25 @@ bash experiments/vtr/tailcompile_v68/run_pipeline.sh evaluate
 训练默认 CUDA、150 epochs，保存 optimizer/RNG/latest checkpoint 和逐 epoch 日志，可原地恢复。`TAILCOMPILE_V68_EPOCHS/HIDDEN/CHUNK_SIZE/CANDIDATES` 只能在新 cohort 开始前决定，不能测试后调参仍声称独立验证。
 `prepare` 含较长 CPU 工作，不要放 GPU 实例等待；不需要也不使用虚假 GPU 保活。
 
-RRG 只运行 pack 导出，不运行布局/布线；随后流式解析，不在 Python 内存中保留百万 rr_edges。设备相同宽度的 raw RRG 共用并压缩；默认 RRG 并行 1，避免重现 OOM。
-并发 VPR 数量也受内存带宽、RAM、CPU quota 限制，16 只是示例，不代表适合所有实例。
+三个参数分别作用于以下阶段（顺序执行，不是相加成 48 个同时运行）：
+
+| 参数 | 控制内容 | 未设置时 |
+|---|---|---|
+| `TAILCOMPILE_V68_JOBS` | Default 边界扫描、教师/反馈标签、最终 VPR 评测 | 16 |
+| `TAILCOMPILE_V68_PREPARE_JOBS` | 综合、pre-GP 结构，以及多进程特征构图 | 继承 JOBS |
+| `TAILCOMPILE_V68_RR_JOBS` | 独立 RRG 生成与压缩 | 继承 JOBS，不限为 1 |
+
+例如只设 `export TAILCOMPILE_V68_JOBS=32`，另外两项没有旧值时就全部使用 32。若以前在 env.sh 或当前 shell 写过 `PREPARE_JOBS=2/RR_JOBS=1`，显式旧值仍优先生效；删除这两行，或先执行：
+
+```bash
+unset TAILCOMPILE_V68_PREPARE_JOBS TAILCOMPILE_V68_RR_JOBS
+export TAILCOMPILE_V68_JOBS=32
+```
+
+需要按内存单独限制 RRG 时可以显式 `export TAILCOMPILE_V68_RR_JOBS=4`，不会降低其他阶段的并行度。RRG 只运行 pack 导出，不运行布局/布线；随后流式解析，不在 Python 内存中保留百万 rr_edges。设备相同宽度的 raw RRG 共用并压缩。
+16/32 表示任务上限，并非内存保证：若仍是之前的 80 GiB 限额，16 个各占约 6.5 GiB 的任务就可能超限，32 更不能盲设。根据实际 CPU quota 和任务峰值内存选择，脚本不会暗中把请求的 16 降为 1。日志 `parallelism` 会显示实际预算，任务少时实际并发自然低于上限。
+
+2026-10-21 的调度更新只接受精确审计过的旧 v6.8 代码哈希兼容，冻结的 seed、宽度、VPR、数据/目标参数均不改变，可继续使用原输出目录、输入、构图缓存和成功 VPR 结果，不要求清空重跑。已运行进程不会动态改变并行度；请勿同时启动第二份 pipeline。可选隔离计时 `timing` 仍遵守原来的串行测量协议，不使用这里的吞吐并发来冒充单任务加速。
 
 ## 验收、恢复和计时解释
 
@@ -124,6 +140,7 @@ bash experiments/vtr/tailcompile_v68/run_pipeline.sh status
 python3 experiments/vtr/tailcompile_v68/test_data.py
 python3 experiments/vtr/tailcompile_v68/test_model.py
 python3 experiments/vtr/tailcompile_v68/test_pipeline.py
+python3 experiments/vtr/tailcompile_v68/test_concurrency.py
 python3 experiments/vtr/tailcompile_v68/test_hook.py
 ```
 

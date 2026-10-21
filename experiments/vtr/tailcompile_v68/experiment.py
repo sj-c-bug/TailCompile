@@ -6,6 +6,7 @@ retained in both arms; TC_GP_INIT changes its initialization, not its result.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures as cf
 import gzip
 import math
 import os
@@ -24,6 +25,7 @@ sys.path.insert(1, str(HERE.parent))
 from common import (COMMIT, classify, emit, execute, fingerprint, freeze, parallel,
                     read, recover, sha, write)
 from analyze_tailcompile_runtime import parse_vpr_log
+from scheduling import DEFAULT_JOBS, compatible_protocol, resolve_concurrency
 
 
 def identity(a):
@@ -64,12 +66,21 @@ def protocol(a):
         width_step=a.width_step, width_start=a.width_start, width_max=a.width_max,
         half_band=a.half_band, timing_guard=a.timing_guard, wire_guard=a.wire_guard,
         vpr_threads=1, legalizer='appack',
-        source={p.name:sha(p) for p in [HERE/'experiment.py', HERE/'data.py', HERE/'common.py']},
+        source={p.name:sha(p) for p in [HERE/'experiment.py', HERE/'data.py', HERE/'common.py', HERE/'scheduling.py']},
         timing_note='Parallel throughput wall times are not serial speedup measurements.')
     all_seeds = a.calibration_seeds+a.teacher_seeds+a.feedback_seeds+a.seeds
     if len(set(all_seeds)) != len(all_seeds):
         raise ValueError('Calibration, teacher, feedback and final evaluation seed sets must be disjoint')
+    if (a.out/'protocol.json').exists():
+        frozen, compatible = compatible_protocol(read(a.out/'protocol.json'), frozen)
+        if compatible:
+            emit('compatible_scheduler_update', frozen_protocol_preserved=True,
+                 note='Only audited concurrency changes; completed inputs and VPR trials reused')
     freeze(a.out/'protocol.json', frozen)
+    write(a.out/'execution_settings.json', dict(jobs=a.jobs, prepare_jobs=a.prepare_jobs,
+        rr_jobs=a.rr_jobs, graph_jobs=a.prepare_jobs, vpr_workers=1,
+        actual_experiment_sha256=sha(Path(__file__)), scheduling_sha256=sha(HERE/'scheduling.py'),
+        recorded_unix=time.time()))
     return designs
 
 
@@ -232,6 +243,29 @@ def rr_graph(a, record, width):
     return compressed
 
 
+def graph_worker(task):
+    """Top-level entry for independent CPU processes, not GIL-bound threads."""
+    request, output, tile_size = task
+    from data import build_cached_graph
+    built = build_cached_graph(request, output, tile_size=tile_size)
+    emit('graph_ready', design=request['design'], width=request['channel_width'], tile_size=tile_size)
+    return dict(request, width=request['channel_width'], **built)
+
+
+def build_graphs(tasks, jobs):
+    results, failures = [], []
+    with cf.ProcessPoolExecutor(max_workers=jobs) as executor:
+        futures = [executor.submit(graph_worker, task) for task in tasks]
+        for future in cf.as_completed(futures):
+            try:
+                results.append(future.result())
+            except Exception as error:
+                failures.append(str(error));emit('graph_failed', error=str(error))
+    if failures:
+        raise RuntimeError(f'{len(failures)} graph builds failed; valid caches retained. First: {failures[0]}')
+    return sorted(results, key=lambda row:(row['design'], row['width']))
+
+
 def prepare(a):
     records = protocol(a)
     prepared = parallel(lambda d:input_structure(a,d), records, a.prepare_jobs)
@@ -245,15 +279,18 @@ def prepare(a):
         for width in record['widths']:
             representatives.setdefault((record['device_width'],record['device_height'],width), (record,width))
     parallel(lambda task:rr_graph(a,*task), representatives.values(), a.rr_jobs)
-    from data import build_cached_graph
-    contexts = []
+    graph_tasks = []
     for record in screened:
         for width in record['widths']:
             request = dict(record, channel_width=width, rr_graph=str(rr_graph(a,record,width)),
                            architecture=str(a.arch), vtr_commit=COMMIT)
-            built = build_cached_graph(request, a.out/'graphs'/record['design']/f'w{width}', tile_size=a.tile_size)
-            contexts.append(dict(record, width=width, **built))
-            emit('graph_ready', design=record['design'], width=width, tile_size=a.tile_size)
+            graph_tasks.append((request, a.out/'graphs'/record['design']/f'w{width}', a.tile_size))
+    contexts = build_graphs(graph_tasks, a.prepare_jobs)
+    # Keep the exact pre-update context schema/order, so a scheduling-only
+    # upgrade can reuse an existing frozen contexts.json as well as its caches.
+    original={(r['design'],w):dict(r,width=w) for r in screened for w in r['widths']}
+    contexts=[dict(original[c['design'],c['width']], **{k:c[k] for k in ('graph','logic','device','supply','audit')})
+              for c in contexts]
     freeze(a.out/'contexts.json', dict(schema='tailcompile-v68-contexts-1', contexts=contexts))
     teacher_tasks = [(c,s) for c in contexts if c['split'] in ('train','validation') for s in a.teacher_seeds]
     parallel(lambda task:route(a,task[0],task[0]['width'],task[1],
@@ -588,7 +625,7 @@ def status(a):
     emit('status',**result)
 
 
-def main():
+def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('phase',choices=['inventory','prepare','feedback','evaluate','report','timing','status','recover'])
     p.add_argument('--out',type=Path,required=True)
@@ -596,9 +633,9 @@ def main():
     p.add_argument('--cohort',type=Path,default=HERE/'cohort.json')
     p.add_argument('--designs',nargs='+')
     p.add_argument('--tile-size',type=int,default=4)
-    p.add_argument('--jobs',type=int,default=8)
-    p.add_argument('--prepare-jobs',type=int,default=2)
-    p.add_argument('--rr-jobs',type=int,default=1)
+    p.add_argument('--jobs',type=int,default=DEFAULT_JOBS,help='Concurrent VPR tasks (default: 16)')
+    p.add_argument('--prepare-jobs',type=int,default=None,help='Synthesis/structure and graph processes; defaults to --jobs')
+    p.add_argument('--rr-jobs',type=int,default=None,help='RRG build processes; defaults to --jobs, not restricted to 1')
     p.add_argument('--timeout',type=float,default=7200)
     p.add_argument('--heartbeat',type=float,default=60)
     p.add_argument('--width-start',type=int,default=100)
@@ -618,14 +655,26 @@ def main():
     p.add_argument('--retry-failed',action='store_true')
     p.add_argument('--retry-timeouts',action='store_true')
     p.add_argument('--confirm-remote-stopped',action='store_true',help='Recover only after explicitly verifying old remote-host workers have stopped')
-    a=p.parse_args()
+    a=p.parse_args(argv)
+    try:
+        resolve_concurrency(a)
+    except ValueError as error:
+        p.error(str(error))
     if not re.fullmatch(r'[A-Za-z0-9_-]+',a.timing_name):
         p.error('timing-name must be a simple run identifier')
-    a.out=a.out.resolve();a.out.mkdir(parents=True,exist_ok=True)
     if (a.width_step < 2 or a.width_step%2 or a.width_start%a.width_step or
         a.width_max%a.width_step or a.width_max<a.width_start or a.half_band<1 or a.tile_size<1 or
         min(a.jobs,a.prepare_jobs,a.rr_jobs,a.candidates)<1 or a.timeout<=0 or a.heartbeat<=0):
         p.error('Invalid width grid, positive task budget or tile size')
+    return a
+
+
+def main():
+    a=parse_args()
+    a.out=a.out.resolve();a.out.mkdir(parents=True,exist_ok=True)
+    emit('parallelism', vpr_jobs=a.jobs, prepare_jobs=a.prepare_jobs, rr_jobs=a.rr_jobs,
+         graph_jobs=a.prepare_jobs, vpr_workers=1,
+         note='These are sequential pipeline stages, not summed simultaneous budgets')
     if a.phase=='recover':
         recover(a.out,confirm_remote_stopped=a.confirm_remote_stopped);return
     if a.phase=='status':
