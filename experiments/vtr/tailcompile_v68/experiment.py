@@ -78,7 +78,8 @@ def protocol(a):
                  note='Only audited concurrency changes; completed inputs and VPR trials reused')
     freeze(a.out/'protocol.json', frozen)
     write(a.out/'execution_settings.json', dict(jobs=a.jobs, prepare_jobs=a.prepare_jobs,
-        rr_jobs=a.rr_jobs, graph_jobs=a.prepare_jobs, vpr_workers=1,
+        rr_jobs=a.rr_jobs, graph_jobs=a.prepare_jobs, generation_jobs=a.generation_jobs,
+        vpr_workers=1,
         actual_experiment_sha256=sha(Path(__file__)), scheduling_sha256=sha(HERE/'scheduling.py'),
         recorded_unix=time.time()))
     return designs
@@ -373,22 +374,20 @@ def feedback_quality(baseline, candidate, *, timing_guard, wire_guard, reference
 
 
 def feedback(a):
-    from infer import Generator
+    from generation import generate_contexts
     contexts=[c for c in load_contexts(a) if c['split']=='train']
     checkpoint=a.checkpoint or a.out/'models/pretrain/generator.pt'
-    generator=Generator(checkpoint,a.device)
     root=a.out/'feedback'
     freeze(root/'protocol.json',dict(checkpoint_sha256=sha(checkpoint),candidates=a.candidates,
         seeds=a.feedback_seeds,score_noise_std=.25,coordinate_noise_std=.05,
         context_sha256=sha(a.out/'contexts.json'),timing_guard=a.timing_guard,wire_guard=a.wire_guard))
-    generated={}
-    for c in contexts:
-        for candidate in range(a.candidates):
-            # Candidate zero is exactly the deterministic deployed policy.
-            generated[c['design'],c['width'],candidate]=generator.generate(c,
-                root/'generation'/c['design']/f'w{c["width"]}'/f'c{candidate}',
-                candidate=candidate,seed=680000+candidate,
-                score_noise_std=.25 if candidate else 0.,coordinate_noise_std=.05 if candidate else 0.)
+    # Each candidate is an independent CPU process-pool task.  This also
+    # parallelizes the costly decoders within one design/width.  Each worker
+    # retains its own model/most-recent graph embeddings when applicable.
+    # Existing candidate signatures and seed/noise policy remain unchanged.
+    generated=generate_contexts(contexts,checkpoint,root/'generation',
+        jobs=getattr(a,'generation_jobs',a.jobs),candidates=a.candidates,
+        mode='feedback',device=a.device,progress_path=root/'generation_progress.json')
     tasks=[(c,s,k) for c in contexts for s in a.feedback_seeds for k in range(-1,a.candidates)]
     def one(task):
         c,seed,candidate=task
@@ -446,6 +445,7 @@ def evaluation_plan(a, contexts, checkpoint):
 
 def evaluate(a):
     from infer import Generator
+    from generation import generate_contexts
     contexts=[c for c in load_contexts(a) if c['split']=='final_test']
     if not contexts:
         raise ValueError('No frozen final-test contexts; a development-only subset is not final validation')
@@ -457,10 +457,12 @@ def evaluate(a):
     forbidden=set(generator.saved['training_families'])|set(generator.saved['validation_families'])
     if forbidden & {c['family'] for c in contexts}:
         raise ValueError('Final-test family participated in generator development')
-    generated={}
-    for c in contexts:
-        generated[c['design'],c['width']]=generator.generate(c,
-            a.out/'evaluation/generation'/c['design']/f'w{c["width"]}')
+    # Drop the metadata-only generator before starting CPU worker processes.
+    del generator
+    all_generated=generate_contexts(contexts,checkpoint,a.out/'evaluation/generation',
+        jobs=getattr(a,'generation_jobs',a.jobs),candidates=1,mode='evaluation',
+        device=a.device,progress_path=a.out/'evaluation/generation_progress.json')
+    generated={(design,width):value for (design,width,candidate),value in all_generated.items()}
     tasks=[]
     for c in contexts:
         for seed in plan['seeds']:
@@ -622,6 +624,15 @@ def status(a):
                               if '_interrupted' not in p.parts and '_attempts' not in p.parts),
         evaluation_complete=read(a.out/'evaluation_report.json').get('all_route_outcomes_known',False)
                             if files['evaluation_report.json'] else False)
+    result['generation_progress']={}
+    for phase in ('feedback','evaluation'):
+        path=a.out/phase/'generation_progress.json'
+        if path.exists():
+            progress=read(path)
+            result['generation_progress'][phase]={key:progress.get(key) for key in (
+                'complete','total_candidates','completed_candidates','reused_candidates',
+                'pending_candidates','failed_contexts','failed_candidates','workers','elapsed_seconds')}
+            result['generation_progress'][phase]['active_candidates']=len(progress.get('running_contexts',[]))
     emit('status',**result)
 
 
@@ -636,6 +647,8 @@ def parse_args(argv=None):
     p.add_argument('--jobs',type=int,default=DEFAULT_JOBS,help='Concurrent VPR tasks (default: 16)')
     p.add_argument('--prepare-jobs',type=int,default=None,help='Synthesis/structure and graph processes; defaults to --jobs')
     p.add_argument('--rr-jobs',type=int,default=None,help='RRG build processes; defaults to --jobs, not restricted to 1')
+    p.add_argument('--generation-jobs',type=int,default=None,
+                   help='CPU initializer generation processes; defaults to --jobs')
     p.add_argument('--timeout',type=float,default=7200)
     p.add_argument('--heartbeat',type=float,default=60)
     p.add_argument('--width-start',type=int,default=100)
@@ -664,7 +677,7 @@ def parse_args(argv=None):
         p.error('timing-name must be a simple run identifier')
     if (a.width_step < 2 or a.width_step%2 or a.width_start%a.width_step or
         a.width_max%a.width_step or a.width_max<a.width_start or a.half_band<1 or a.tile_size<1 or
-        min(a.jobs,a.prepare_jobs,a.rr_jobs,a.candidates)<1 or a.timeout<=0 or a.heartbeat<=0):
+        min(a.jobs,a.prepare_jobs,a.rr_jobs,a.generation_jobs,a.candidates)<1 or a.timeout<=0 or a.heartbeat<=0):
         p.error('Invalid width grid, positive task budget or tile size')
     return a
 
@@ -673,7 +686,7 @@ def main():
     a=parse_args()
     a.out=a.out.resolve();a.out.mkdir(parents=True,exist_ok=True)
     emit('parallelism', vpr_jobs=a.jobs, prepare_jobs=a.prepare_jobs, rr_jobs=a.rr_jobs,
-         graph_jobs=a.prepare_jobs, vpr_workers=1,
+         graph_jobs=a.prepare_jobs, generation_jobs=a.generation_jobs, vpr_workers=1,
          note='These are sequential pipeline stages, not summed simultaneous budgets')
     if a.phase=='recover':
         recover(a.out,confirm_remote_stopped=a.confirm_remote_stopped);return

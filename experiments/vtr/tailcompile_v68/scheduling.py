@@ -17,7 +17,9 @@ def resolve_concurrency(args):
         args.prepare_jobs = args.jobs
     if args.rr_jobs is None:
         args.rr_jobs = args.jobs
-    if min(args.jobs, args.prepare_jobs, args.rr_jobs) < 1:
+    if getattr(args, 'generation_jobs', None) is None:
+        args.generation_jobs = args.jobs
+    if min(args.jobs, args.prepare_jobs, args.rr_jobs, args.generation_jobs) < 1:
         raise ValueError('All process concurrency budgets must be positive')
     return args
 
@@ -33,13 +35,18 @@ def compatible_protocol(previous, expected):
     if previous == expected:
         return expected, False
     manifest = json.loads((HERE/'scheduling_compatibility.json').read_text())
-    if (previous.get('source', {}).get('experiment.py') != manifest['legacy_experiment_sha256'] or
-        expected.get('source', {}).get('experiment.py') != manifest['updated_experiment_sha256'] or
+    if (expected.get('source', {}).get('experiment.py') != manifest['updated_experiment_sha256'] or
         sha(Path(__file__)) != manifest['scheduling_module_sha256']):
         return expected, False
-    candidate = copy.deepcopy(expected)
-    candidate['source']['experiment.py'] = manifest['legacy_experiment_sha256']
-    candidate['source'].pop('scheduling.py', None)
-    if candidate != previous:
-        return expected, False
-    return candidate, True
+    predecessors = manifest.get('compatible_predecessor_sources', [
+        {'experiment.py':manifest['legacy_experiment_sha256'], 'scheduling.py':None}])
+    for source in predecessors:
+        candidate = copy.deepcopy(expected)
+        for name, digest in source.items():
+            if digest is None:
+                candidate['source'].pop(name, None)
+            else:
+                candidate['source'][name] = digest
+        if candidate == previous:
+            return candidate, True
+    return expected, False

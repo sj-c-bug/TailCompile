@@ -57,10 +57,12 @@ class ConcurrencyTest(unittest.TestCase):
     def test_python_defaults_are_sixteen_for_all_cpu_stages(self):
         args = self.parse()
         self.assertEqual((args.jobs, args.prepare_jobs, args.rr_jobs), (16, 16, 16))
+        self.assertEqual(args.generation_jobs, 16)
 
     def test_general_override_is_inherited_by_both_specialized_budgets(self):
         args = self.parse('--jobs', '32')
         self.assertEqual((args.jobs, args.prepare_jobs, args.rr_jobs), (32, 32, 32))
+        self.assertEqual(args.generation_jobs, 32)
 
     def test_specific_override_only_changes_requested_stage(self):
         args = self.parse('--jobs', '32', '--rr-jobs', '4')
@@ -69,9 +71,11 @@ class ConcurrencyTest(unittest.TestCase):
         self.assertEqual((args.jobs, args.prepare_jobs, args.rr_jobs), (32, 6, 32))
         args = self.parse('--prepare-jobs', '3', '--rr-jobs', '2')
         self.assertEqual((args.jobs, args.prepare_jobs, args.rr_jobs), (16, 3, 2))
+        args = self.parse('--jobs','32','--generation-jobs','16')
+        self.assertEqual((args.jobs,args.generation_jobs),(32,16))
 
     def test_nonpositive_overrides_are_rejected(self):
-        for flag in ('--jobs', '--prepare-jobs', '--rr-jobs'):
+        for flag in ('--jobs', '--prepare-jobs', '--rr-jobs','--generation-jobs'):
             for value in ('0', '-1'):
                 with self.subTest(flag=flag, value=value):
                     with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
@@ -83,8 +87,10 @@ class ConcurrencyTest(unittest.TestCase):
         self.assertIn('${TAILCOMPILE_V68_JOBS:-16}', source)
         self.assertIn('${TAILCOMPILE_V68_PREPARE_JOBS:-$jobs}', source)
         self.assertIn('${TAILCOMPILE_V68_RR_JOBS:-$jobs}', source)
+        self.assertIn('${TAILCOMPILE_V68_GENERATION_JOBS:-$jobs}', source)
         self.assertIn('--jobs "$jobs" --prepare-jobs "$prepare_jobs"', source)
         self.assertIn('--rr-jobs "$rr_jobs"', source)
+        self.assertIn('--generation-jobs "$generation_jobs"', source)
 
     @unittest.skipUnless(NATIVE_BASH, 'requires native Linux/macOS Bash; Windows CLI tests still run')
     def test_actual_bash_launch_arguments_default_override_and_specific_override(self):
@@ -96,9 +102,10 @@ source "$1" status
 '''
         with tempfile.TemporaryDirectory(prefix='v68-shell-concurrency-') as tmp:
             root = Path(tmp)
-            for override, expected in [({}, (16, 16, 16)),
-                    ({'TAILCOMPILE_V68_JOBS': '32'}, (32, 32, 32)),
-                    ({'TAILCOMPILE_V68_JOBS': '32', 'TAILCOMPILE_V68_RR_JOBS': '4'}, (32, 32, 4))]:
+            for override, expected in [({}, (16, 16, 16, 16)),
+                    ({'TAILCOMPILE_V68_JOBS': '32'}, (32, 32, 32, 32)),
+                    ({'TAILCOMPILE_V68_JOBS': '32', 'TAILCOMPILE_V68_RR_JOBS': '4'}, (32, 32, 4,32)),
+                    ({'TAILCOMPILE_V68_JOBS':'32','TAILCOMPILE_V68_GENERATION_JOBS':'16'},(32,32,32,16))]:
                 env = {key: value for key, value in os.environ.items()
                        if not key.startswith('TAILCOMPILE_V68_')}
                 capture = root / 'arguments.txt'
@@ -111,7 +118,7 @@ source "$1" status
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 values = capture.read_text().splitlines()
                 actual = tuple(int(values[values.index(flag) + 1]) for flag in
-                               ('--jobs', '--prepare-jobs', '--rr-jobs'))
+                               ('--jobs', '--prepare-jobs', '--rr-jobs','--generation-jobs'))
                 self.assertEqual(actual, expected)
 
     def test_graph_builder_uses_independent_processes_and_preserves_sorted_results(self):
@@ -189,6 +196,32 @@ source "$1" status
                 modified = copy.deepcopy(expected)
                 modified['source']['experiment.py'] = 'unknown-new-experiment'
                 self.assertFalse(scheduling.compatible_protocol(previous, modified)[1])
+
+    def test_known_predecessor_source_sets_are_exactly_preserved(self):
+        from common import read
+        manifest=read(HERE/'scheduling_compatibility.json')
+        self.assertEqual(sha(Path(experiment.__file__)),manifest['updated_experiment_sha256'])
+        self.assertEqual(sha(Path(scheduling.__file__)),manifest['scheduling_module_sha256'])
+        expected=dict(identity={'binary_sha256':'unchanged'},cohort_sha256='same-cohort',
+            source={'experiment.py':sha(Path(experiment.__file__)),
+                    'scheduling.py':sha(Path(scheduling.__file__)),
+                    'data.py':'unchanged-data','common.py':'unchanged-common'})
+        for predecessor in manifest['compatible_predecessor_sources']:
+            previous=copy.deepcopy(expected)
+            for name,digest in predecessor.items():
+                if digest is None:
+                    previous['source'].pop(name,None)
+                else:
+                    previous['source'][name]=digest
+            normalized,allowed=scheduling.compatible_protocol(previous,expected)
+            self.assertTrue(allowed)
+            self.assertEqual(normalized,previous)
+            changed=copy.deepcopy(expected)
+            changed['cohort_sha256']='different-cohort'
+            self.assertFalse(scheduling.compatible_protocol(previous,changed)[1])
+            unknown=copy.deepcopy(previous)
+            unknown['source']['scheduling.py']='unrecognized-scheduler'
+            self.assertFalse(scheduling.compatible_protocol(unknown,expected)[1])
 
 
 if __name__ == '__main__':

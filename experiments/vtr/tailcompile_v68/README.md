@@ -119,7 +119,7 @@ bash experiments/vtr/tailcompile_v68/install_vtr.sh
 |---|---|---|---|
 | 准备 | CPU | `prepare` | 综合、无 GP 结构、Default 边界、pack-only RRG、细粒度图、教师数据 |
 | 预训练 | GPU | `train` | 直接训练层次生成器 |
-| 真反馈 | CPU | `feedback` | 生成训练候选，并行 warm-start VPR 标签 |
+| 真反馈 | CPU | `feedback` | 多进程生成训练候选，随后并行 warm-start VPR 标签 |
 | 微调 | GPU | `finetune` | 将真实收益回灌同一生成器 |
 | 最终验证 | CPU | `evaluate` | 未见设计族 Default/GNN 多 seed 宽度扫描与汇总 |
 | 可选计时 | CPU | `timing` | 最低共同成功条件的小规模串行配对计时 |
@@ -151,18 +151,19 @@ bash experiments/vtr/tailcompile_v68/run_pipeline.sh evaluate
 训练默认 CUDA、150 epochs，保存 optimizer/RNG/latest checkpoint 和逐 epoch 日志，可原地恢复。`TAILCOMPILE_V68_EPOCHS/HIDDEN/CHUNK_SIZE/CANDIDATES` 只能在新 cohort 开始前决定，不能测试后调参仍声称独立验证。
 `prepare` 含较长 CPU 工作，不要放 GPU 实例等待；不需要也不使用虚假 GPU 保活。
 
-三个参数分别作用于以下阶段（顺序执行，不是相加成 48 个同时运行）：
+以下参数分别作用于不同子阶段（顺序执行，并行预算不相加）：
 
 | 参数 | 控制内容 | 未设置时 |
 |---|---|---|
 | `TAILCOMPILE_V68_JOBS` | Default 边界扫描、教师/反馈标签、最终 VPR 评测 | 16 |
 | `TAILCOMPILE_V68_PREPARE_JOBS` | 综合、pre-GP 结构，以及多进程特征构图 | 继承 JOBS |
 | `TAILCOMPILE_V68_RR_JOBS` | 独立 RRG 生成与压缩 | 继承 JOBS，不限为 1 |
+| `TAILCOMPILE_V68_GENERATION_JOBS` | feedback/evaluate 候选推理、匹配解码及输出 | 继承 JOBS，默认 16 |
 
-例如只设 `export TAILCOMPILE_V68_JOBS=32`，另外两项没有旧值时就全部使用 32。若以前在 env.sh 或当前 shell 写过 `PREPARE_JOBS=2/RR_JOBS=1`，显式旧值仍优先生效；删除这两行，或先执行：
+例如只设 `export TAILCOMPILE_V68_JOBS=32`，另外三项没有旧值时就全部使用 32。若以前在 env.sh 或当前 shell 写过 `PREPARE_JOBS=2/RR_JOBS=1` 或其他单独并行度，显式旧值仍优先生效；删除旧设置，或先执行：
 
 ```bash
-unset TAILCOMPILE_V68_PREPARE_JOBS TAILCOMPILE_V68_RR_JOBS
+unset TAILCOMPILE_V68_PREPARE_JOBS TAILCOMPILE_V68_RR_JOBS TAILCOMPILE_V68_GENERATION_JOBS
 export TAILCOMPILE_V68_JOBS=32
 ```
 
@@ -170,6 +171,35 @@ export TAILCOMPILE_V68_JOBS=32
 16/32 表示任务上限，并非内存保证：若仍是之前的 80 GiB 限额，16 个各占约 6.5 GiB 的任务就可能超限，32 更不能盲设。根据实际 CPU quota 和任务峰值内存选择，脚本不会暗中把请求的 16 降为 1。日志 `parallelism` 会显示实际预算，任务少时实际并发自然低于上限。
 
 2026-10-21 的调度更新只接受精确审计过的旧 v6.8 代码哈希兼容，冻结的 seed、宽度、VPR、数据/目标参数均不改变，可继续使用原输出目录、输入、构图缓存和成功 VPR 结果，不要求清空重跑。已运行进程不会动态改变并行度；请勿同时启动第二份 pipeline。可选隔离计时 `timing` 仍遵守原来的串行测量协议，不使用这里的吞吐并发来冒充单任务加速。
+
+### 2026-10-22：候选生成也按单个候选多进程并行
+
+旧 feedback 在生成全部候选后才并行跑 VPR；`JOBS` 之前不控制该串行生成循环。现在 feedback/evaluate 的生成采用独立 CPU 进程池，每个候选是一个任务，同一设计/宽度的 8 个候选也能同时解码。默认 `GENERATION_JOBS` 继承 `JOBS` 的 16/32，不暗中降为 1；如 RAM 预算需要，可单独限制此项。
+
+- 每 worker 的 PyTorch/OMP/MKL/OpenBLAS 线程数为 1，复用自己的模型和最近图编码缓存。不能把同一个有可变缓存的 Generator 对象直接在线程间共享。
+- `infer.py`、`model.py`、checkpoint、候选 seed/noise、输出目录与冻结反馈条件均不变。已有有效 `generation.json` 会核对签名与输出哈希后复用，不重生成、不覆盖；只有尚未提交完整 manifest 的候选重新做该项。不需要归档模型或重跑 train/prepare。
+- 父进程只派发缺失候选，生成进度和并发配置独立写入 `feedback/generation_progress.json`（评测对应 evaluation 目录）。状态命令也显示生成进度；候选齐全后才进入原有 VPR 阶段。
+- 不改变容量解码算法、候选数量或单候选质量。因此单个 BGM 解码仍可能很长，改善的是整批吞吐；内存带宽、进程大图副本与尾部慢任务会限制加速比。不要把并行墙钟时间混进正式串行 runtime 加速结论。`timing` 继续原串行生成/测量方式。
+- CPU 使用 spawn 进程，避免 fork 已初始化的 PyTorch；多进程不用于单张 GPU。每个 worker 的大图副本都要计入 RAM，32 并发并非内存可行性保证。
+
+在原 CPU 实例先停止旧 feedback，等 cohort `.lock` 释放后更新，再原目录续跑。旧串行反馈若仍在匹配/解码且没有子 VPR，停止精确匹配的 `experiment.py feedback` 主 Python 即可；不能用泛化 `pkill python/vpr`，也不要杀交互终端的整个进程组。新并行生成器收到 SIGTERM/KeyboardInterrupt 时清理自己启动的 worker；SIGKILL/机器故障无法保证这一点，恢复前仍需确认旧 worker 已停止。
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+export TAILCOMPILE_V68_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v68/runs/hier_init_001"
+export TAILCOMPILE_V68_JOBS=32
+export TAILCOMPILE_V68_GENERATION_JOBS=32
+
+# 旧任务已停、锁已释放后启动；保持原 checkpoint/候选数/tile size。
+mkdir -p logs
+log="logs/v68_feedback_parallel_$(date +%Y%m%d_%H%M%S).log"
+nohup bash experiments/vtr/tailcompile_v68/run_pipeline.sh feedback >"$log" 2>&1 </dev/null &
+echo "PID=$! LOG=$log"
+bash experiments/vtr/tailcompile_v68/run_pipeline.sh status
+```
+
+若还有未结束 VPR，应先确认它们与父调度均停止；不要用 `recover` 绕过存活 worker 检查。旧候选生成未写 `started.json`，所以 recover 不会统计这些半成品；不需要因此清空 generation 目录。
 
 ## 验收、恢复和计时解释
 
@@ -180,6 +210,7 @@ python3 experiments/vtr/tailcompile_v68/test_model.py
 python3 experiments/vtr/tailcompile_v68/test_supervision.py
 python3 experiments/vtr/tailcompile_v68/test_pipeline.py
 python3 experiments/vtr/tailcompile_v68/test_concurrency.py
+python3 experiments/vtr/tailcompile_v68/test_generation_parallel.py
 python3 experiments/vtr/tailcompile_v68/test_hook.py
 ```
 

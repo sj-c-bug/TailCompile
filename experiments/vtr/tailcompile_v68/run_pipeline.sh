@@ -18,6 +18,7 @@ cpu() {
   local jobs="${TAILCOMPILE_V68_JOBS:-16}"
   local prepare_jobs="${TAILCOMPILE_V68_PREPARE_JOBS:-$jobs}"
   local rr_jobs="${TAILCOMPILE_V68_RR_JOBS:-$jobs}"
+  local generation_jobs="${TAILCOMPILE_V68_GENERATION_JOBS:-$jobs}"
   extra=()
   [[ -n "${TAILCOMPILE_V68_DESIGNS:-}" ]] && read -r -a designs <<< "$TAILCOMPILE_V68_DESIGNS" && extra+=(--designs "${designs[@]}")
   [[ "${TAILCOMPILE_V68_RETRY_TIMEOUTS:-0}" == 1 ]] && extra+=(--retry-timeouts)
@@ -27,7 +28,8 @@ cpu() {
   python3 -u experiments/vtr/tailcompile_v68/experiment.py "$1" --out "$out" \
     --cohort "${TAILCOMPILE_V68_COHORT:-experiments/vtr/tailcompile_v68/cohort.json}" \
     --jobs "$jobs" --prepare-jobs "$prepare_jobs" \
-    --rr-jobs "$rr_jobs" --tile-size "${TAILCOMPILE_V68_TILE_SIZE:-4}" \
+    --rr-jobs "$rr_jobs" --generation-jobs "$generation_jobs" \
+    --tile-size "${TAILCOMPILE_V68_TILE_SIZE:-4}" \
     --timeout "${TAILCOMPILE_V68_TIMEOUT:-7200}" --heartbeat "${TAILCOMPILE_V68_HEARTBEAT:-60}" \
     --candidates "${TAILCOMPILE_V68_CANDIDATES:-8}" \
     --timing-name "${TAILCOMPILE_V68_TIMING_RUN:-serial_001}" --device cpu "${extra[@]}"
