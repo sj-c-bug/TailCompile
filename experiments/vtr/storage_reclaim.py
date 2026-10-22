@@ -19,6 +19,7 @@ import re
 import shlex
 import stat
 import subprocess
+import sys
 import time
 import uuid
 
@@ -29,6 +30,59 @@ PROTECTED = {'inputs','input','ir','graphs','graph','device_cache','pool','pools
              'generation','models','model','bundle','dataset','checkpoints','designs','.git'}
 DONE = {'success','unroutable','timeout','other_failure','interrupted','killed','complete'}
 NETS = {'packed_net','postrouting_net'}
+
+
+class Progress:
+    """Rate-limited JSON diagnostics; the command's stdout stays machine readable."""
+
+    def __init__(self, operation, seconds=30, *, stream=None, clock=None):
+        if not math.isfinite(seconds) or seconds <= 0:
+            raise ValueError('progress_seconds must be finite and positive')
+        self.operation = operation
+        self.seconds = seconds
+        self.stream = sys.stderr if stream is None else stream
+        self.clock = time.monotonic if clock is None else clock
+        self.started = self.clock()
+        self.phase_started = self.started
+        self.last = self.started
+        self.phase_name = None
+        self.details = {}
+        self.hashed_bytes = 0
+        self.hashed_files = 0
+
+    def phase(self, name, **details):
+        self.phase_name = name
+        self.phase_started = self.clock()
+        self.details = details
+        self.update(force=True)
+
+    def update(self, *, force=False, **details):
+        self.details.update(details)
+        now = self.clock()
+        if not force and now-self.last < self.seconds:
+            return
+        row = dict(event='storage_progress', operation=self.operation, phase=self.phase_name,
+                   elapsed_seconds=round(now-self.started,3),
+                   phase_elapsed_seconds=round(now-self.phase_started,3), **self.details)
+        print(json.dumps(row,ensure_ascii=False),file=self.stream,flush=True)
+        self.last = now
+
+
+def _digest(path, progress=None, *, total_bytes=None):
+    if progress is None:
+        return digest(path)
+    before = progress.hashed_bytes
+
+    def advanced(bytes_read):
+        progress.hashed_bytes = before+bytes_read
+        progress.update(current_path=str(path), file_bytes_read=bytes_read,
+                        file_size_bytes=total_bytes, hashed_bytes=progress.hashed_bytes,
+                        hashed_files=progress.hashed_files)
+
+    value = digest(path, progress=advanced)
+    progress.hashed_files += 1
+    progress.update(hashed_files=progress.hashed_files)
+    return value
 
 
 def load(path):
@@ -43,11 +97,17 @@ def save(path, value):
     temporary.replace(path)
 
 
-def digest(path):
+def digest(path, progress=None):
     value = hashlib.sha256()
+    bytes_read = 0
     with Path(path).open('rb') as stream:
         for block in iter(lambda: stream.read(1024*1024), b''):
             value.update(block)
+            bytes_read += len(block)
+            if progress is not None:
+                progress(bytes_read)
+    if progress is not None and bytes_read == 0:
+        progress(0)
     return value.hexdigest()
 
 
@@ -120,14 +180,17 @@ def controller_versions(args):
     return versions
 
 
-def active_paths(repo, scratch=None):
+def active_paths(repo, scratch=None, progress=None):
     if os.name != 'posix' or not Path('/proc').is_dir():
         raise RuntimeError('Destructive cleanup requires Linux/WSL process inspection')
     directories,files,versions = set(),set(),set()
-    unreadable = 0
+    unreadable = processes = 0
     for process in Path('/proc').iterdir():
         if not process.name.isdigit() or int(process.name)==os.getpid():
             continue
+        processes += 1
+        if progress is not None:
+            progress.update(processes=processes, current_path=str(process))
         try:
             try:
                 directories.add((process/'cwd').resolve(strict=True))
@@ -175,14 +238,18 @@ def _looks_path(value):
             lower.endswith(('.blif','.fplace','.place','.pt','.tsv','.csv','.json')))
 
 
-def _paths(value, folder):
+def _paths(value, folder, progress=None):
     result = set()
     if isinstance(value, dict):
-        for child in value.values():
-            result.update(_paths(child, folder))
+        for index,child in enumerate(value.values()):
+            if progress is not None and index % 1024 == 0:
+                progress.update()
+            result.update(_paths(child, folder, progress))
     elif isinstance(value, list):
-        for child in value:
-            result.update(_paths(child, folder))
+        for index,child in enumerate(value):
+            if progress is not None and index % 1024 == 0:
+                progress.update()
+            result.update(_paths(child, folder, progress))
     elif isinstance(value, str):
         # Avoid resolving millions of ordinary atom/resource names in logic IR.
         if not _looks_path(value):
@@ -210,20 +277,21 @@ def _paths(value, folder):
     return result
 
 
-def streamed_paths(path):
+def streamed_paths(path, progress=None):
     """Extract JSON string references without materializing huge IR arrays.
 
     Carry an incomplete STRING, never an arbitrary tail that could reverse JSON
     quote pairing. Huge numeric arrays need no retained buffer. Abnormally long
     strings fail closed rather than silently losing possible input references.
     """
-    result,tail = set(),''
+    result,tail,characters_read = set(),'',0
     token = re.compile(r'"(?:[^"\\]|\\.)*"')
     with Path(path).open(encoding='utf-8',errors='strict') as stream:
         while True:
             chunk = stream.read(1024*1024)
             if not chunk:
                 break
+            characters_read += len(chunk)
             text = tail+chunk
             position,tail = 0,''
             while True:
@@ -242,12 +310,14 @@ def streamed_paths(path):
                 result.update(_paths(json.loads(literal),Path(path).parent))
             if len(tail) > 65536:
                 raise ValueError(f'Unusually long JSON string in provenance: {path}')
+            if progress is not None:
+                progress(characters_read)
     if tail:
         raise ValueError(f'Incomplete JSON string in provenance: {path}')
     return result
 
 
-def collect_references(repo, scratch=None):
+def collect_references(repo, scratch=None, progress=None):
     """Read small provenance JSON, including current and unfinished consumers.
 
     Huge feature/target arrays are not parsed; every .net path in eligible JSON
@@ -255,6 +325,10 @@ def collect_references(repo, scratch=None):
     """
     repo = Path(repo).resolve()
     result = References()
+    directories = files_seen = json_files = 0
+    if progress is not None:
+        progress.phase('collect_references', directories=0, files_seen=0, json_files=0,
+                       references=0, unreadable_dependency_records=0)
     bases = [repo/'experiments/vtr']
     if scratch is not None and Path(scratch).resolve() != repo/'vtr_work':
         bases.append(Path(scratch).resolve())
@@ -265,6 +339,13 @@ def collect_references(repo, scratch=None):
             continue
         for directory,dirs,names in os.walk(base, followlinks=False):
             folder = Path(directory)
+            directories += 1
+            files_seen += len(names)
+            if progress is not None:
+                progress.update(current_path=str(folder), directories=directories,
+                                files_seen=files_seen, json_files=json_files,
+                                references=len(result),
+                                unreadable_dependency_records=len(result.unreadable))
             dirs[:] = [d for d in dirs if d not in {'.git','__pycache__','models','model','checkpoints'}
                        and not (folder/d).is_symlink()]
             for name in names:
@@ -277,9 +358,15 @@ def collect_references(repo, scratch=None):
                 # dependencies, and must not make previous cleanups self-pinning.
                 if name.startswith(('payload_prun','storage_')) or 'cleanup' in name or 'reclaim' in name:
                     continue
+                json_files += 1
                 try:
-                    paths = (streamed_paths(path) if path.stat().st_size > 64*1024**2
-                             else _paths(load(path),folder))
+                    if progress is not None:
+                        progress.update(current_path=str(path),json_files=json_files,
+                                        json_characters_read=0)
+                    paths = (streamed_paths(path, progress=(lambda count: progress.update(
+                                 json_characters_read=count)) if progress is not None else None)
+                             if path.stat().st_size > 64*1024**2
+                             else _paths(load(path),folder,progress))
                     result.update(paths)
                     if not any(part in VERSIONS for part in path.parts):
                         result.current.update(paths)
@@ -287,6 +374,10 @@ def collect_references(repo, scratch=None):
                     # Even IR/summary records may carry the only live input
                     # reference; unreadable provenance must not fail open.
                     result.unreadable.append(str(path))
+    if progress is not None:
+        progress.update(force=True, status='complete', directories=directories,
+                        files_seen=files_seen, json_files=json_files, references=len(result),
+                        unreadable_dependency_records=len(result.unreadable))
     return result
 
 
@@ -352,25 +443,43 @@ def _allowed_file(path,root,active,tracked,min_age_hours):
 
 
 def plan_reclaim(repo, scratch=None, *, include_netlists=False, deduplicate_netlists=False,
-                 min_age_hours=24, active=None, tracked=None, references=None):
+                 min_age_hours=24, active=None, tracked=None, references=None, progress=None):
+    if progress is not None:
+        progress.phase('enumerate_roots')
     repo = Path(repo).resolve()
     scratch = Path(scratch).resolve() if scratch is not None else None
     roots = roots_for(repo,scratch)
     if min_age_hours < 0 or not math.isfinite(min_age_hours):
         raise ValueError('min_age_hours must be finite and nonnegative')
-    active = active_paths(repo,scratch) if active is None else active
+    if progress is not None:
+        progress.phase('inspect_processes', roots=len(roots))
+    active = active_paths(repo,scratch,progress) if active is None else active
+    if progress is not None:
+        progress.phase('collect_tracked_files')
     tracked = tracked_files(repo) if tracked is None else {Path(p).resolve() for p in tracked}
-    references = collect_references(repo,scratch) if references is None else references
+    references = collect_references(repo,scratch,progress) if references is None else references
     references = references if isinstance(references,References) else set(Path(p).resolve() for p in references)
     blocked_nets = bool(getattr(references,'unreadable',[]))
     entries,skipped,dedup = [],Counter(),defaultdict(list)
     summaries = defaultdict(lambda:dict(files=0,allocated_bytes=0,logical_bytes=0))
+    directories = files_seen = 0
+    if progress is not None:
+        progress.phase('scan_payloads', roots=len(roots), directories=0, files_seen=0,
+                       candidate_files=0)
     for root,location,version in roots:
         for base,dirs,names in os.walk(root,followlinks=False):
             folder = Path(base)
+            directories += 1
             dirs[:] = [d for d in dirs if d not in PROTECTED and not (folder/d).is_symlink()]
             evidence,row = evidence_for(root,folder,location,version,repo)
+            # All payloads in this folder use the same completed record. Hash
+            # it once while planning; apply still revalidates every entry.
+            evidence_path = evidence_sha256 = None
             for name in names:
+                files_seen += 1
+                if progress is not None:
+                    progress.update(current_path=str(folder/name),directories=directories,
+                                    files_seen=files_seen,candidate_files=len(entries))
                 kind = raw_kind(name)
                 if kind is None:
                     continue
@@ -383,9 +492,12 @@ def plan_reclaim(repo, scratch=None, *, include_netlists=False, deduplicate_netl
                     skipped[reason] += 1
                     continue
                 actual = path.resolve()
+                if evidence_sha256 is None:
+                    evidence_path = str(evidence.resolve())
+                    evidence_sha256 = _digest(evidence,progress)
                 entry = dict(action='delete', path=str(actual), root=str(root),
                     location=location,version=version,kind=kind,stat=info,
-                    evidence=str(evidence.resolve()), evidence_sha256=digest(evidence))
+                    evidence=evidence_path, evidence_sha256=evidence_sha256)
                 protected_name = (name.lower()=='input.net' or 'locked-input' in name.lower() or 'input-packed' in name.lower())
                 if protected_name and archived_input_copy(actual,folder,row):
                     protected_name = False
@@ -399,12 +511,17 @@ def plan_reclaim(repo, scratch=None, *, include_netlists=False, deduplicate_netl
                             actual not in getattr(references,'current',set())):
                         dedup[info['device'],info['size']].append(entry)
     if deduplicate_netlists:
-        for group in dedup.values():
-            if len(group)<2:
-                continue
+        groups = [group for group in dedup.values() if len(group)>=2]
+        if progress is not None:
+            progress.hashed_bytes = progress.hashed_files = 0
+            progress.phase('hash_netlist_duplicates', groups=len(groups),
+                           files_to_hash=sum(len(group) for group in groups),
+                           bytes_to_hash=sum(entry['stat']['size'] for group in groups for entry in group),
+                           hashed_files=0, hashed_bytes=0)
+        for group in groups:
             hashes = defaultdict(list)
             for entry in group:
-                value = digest(entry['path'])
+                value = _digest(entry['path'],progress,total_bytes=entry['stat']['size'])
                 if snapshot(entry['path'])!=entry['stat']:
                     skipped['changed_during_hash'] += 1
                 else:
@@ -419,6 +536,9 @@ def plan_reclaim(repo, scratch=None, *, include_netlists=False, deduplicate_netl
                         canonical_stat=master['stat'],canonical_evidence=master['evidence'],
                         canonical_evidence_sha256=master['evidence_sha256'],sha256=checksum,
                         freeze_readonly=True))
+    if progress is not None:
+        progress.phase('summarize_plan', candidate_files=len(entries),
+                       skipped_files=sum(skipped.values()),directories=directories,files_seen=files_seen)
     for entry in entries:
         key = entry['location']+'/'+entry['version']+'/'+entry['action']+'/'+entry['kind']
         summaries[key]['files'] += 1
@@ -426,7 +546,7 @@ def plan_reclaim(repo, scratch=None, *, include_netlists=False, deduplicate_netl
         summaries[key]['logical_bytes'] += entry['stat']['size']
     allocated = sum(e['stat']['allocated_bytes'] for e in entries)
     return dict(schema=SCHEMA,repo=str(repo),scratch=str(scratch) if scratch else None,
-        created_unix=time.time(),tool_sha256=digest(__file__),min_age_hours=min_age_hours,
+        created_unix=time.time(),tool_sha256=_digest(__file__,progress),min_age_hours=min_age_hours,
         include_netlists=include_netlists,deduplicate_netlists=deduplicate_netlists,
         candidate_files=len(entries),deletion_files=sum(e['action']=='delete' for e in entries),
         dedup_files=sum(e['action']=='hardlink' for e in entries),allocated_bytes=allocated,
@@ -447,30 +567,44 @@ def _journal(path,value):
 
 
 def apply_reclaim(plan, *, repo=None, scratch=None, active=None, tracked=None,
-                  references=None, journal=None, ack_immutable_archives=False):
+                  references=None, journal=None, ack_immutable_archives=False, progress=None):
+    if progress is not None:
+        progress.phase('validate_plan',entries=len(plan.get('entries',[])))
     repo = Path(repo or plan['repo']).resolve()
     scratch = Path(scratch).resolve() if scratch is not None else (Path(plan['scratch']) if plan['scratch'] else None)
-    if plan.get('schema')!=SCHEMA or plan.get('tool_sha256')!=digest(__file__) or str(repo)!=plan['repo']:
+    if plan.get('schema')!=SCHEMA or plan.get('tool_sha256')!=_digest(__file__,progress) or str(repo)!=plan['repo']:
         raise ValueError('Plan schema, tool or repository changed; generate a new plan')
     if (str(scratch) if scratch else None)!=plan['scratch']:
         raise ValueError('Scratch scope changed')
     if any(e['action']=='hardlink' for e in plan['entries']) and not ack_immutable_archives:
         raise ValueError('Hardlink dedup requires --ack-immutable-archives; never rerun these archives in place')
+    if progress is not None:
+        progress.phase('enumerate_roots')
     scopes = {str(r):(location,version) for r,location,version in roots_for(repo,scratch)}
     allowed = set(scopes)
     dynamic_active = active is None
-    active = active_paths(repo,scratch) if active is None else active
+    if progress is not None:
+        progress.phase('inspect_processes',roots=len(scopes))
+    active = active_paths(repo,scratch,progress) if active is None else active
     checked_active = time.monotonic()
+    if progress is not None:
+        progress.phase('collect_tracked_files')
     tracked = tracked_files(repo) if tracked is None else {Path(p).resolve() for p in tracked}
-    references = collect_references(repo,scratch) if references is None else references
+    references = collect_references(repo,scratch,progress) if references is None else references
     references = references if isinstance(references,References) else {Path(p).resolve() for p in references}
     results,skipped,masters = [],[],{}
-    for entry in plan['entries']:
+    if progress is not None:
+        progress.phase('apply_entries',entries=len(plan['entries']),entries_checked=0,
+                       completed_files=0,skipped_files=0)
+    for index,entry in enumerate(plan['entries']):
         path,root = Path(entry['path']),Path(entry['root'])
+        if progress is not None:
+            progress.update(current_path=str(path),entries_checked=index,
+                            completed_files=len(results),skipped_files=len(skipped))
         reason = None
         try:
             if dynamic_active and time.monotonic()-checked_active > 5:
-                active = active_paths(repo,scratch)
+                active = active_paths(repo,scratch,progress)
                 checked_active = time.monotonic()
             if (str(root) not in allowed or not path.is_absolute() or not path.is_relative_to(root) or
                     any(p in PROTECTED for p in path.relative_to(root).parts[:-1]) or
@@ -484,7 +618,7 @@ def apply_reclaim(plan, *, repo=None, scratch=None, active=None, tracked=None,
                 location,version = scopes[str(root)]
                 evidence,row = evidence_for(root,path.parent,location,version,repo)
                 if (evidence is None or evidence.resolve()!=Path(entry['evidence']) or
-                        digest(evidence)!=entry['evidence_sha256']):
+                        _digest(evidence,progress)!=entry['evidence_sha256']):
                     reason = 'evidence_changed_or_not_completed'
             if reason is None and entry['action']=='delete' and entry['kind'] in NETS:
                 lower = path.name.lower()
@@ -519,10 +653,11 @@ def apply_reclaim(plan, *, repo=None, scratch=None, active=None, tracked=None,
                     clocation,cversion = scopes[str(croot)]
                     cevidence,_ = evidence_for(croot,canonical.parent,clocation,cversion,repo)
                     if (cevidence is None or cevidence.resolve()!=Path(entry['canonical_evidence']) or
-                            digest(cevidence)!=entry['canonical_evidence_sha256']):
+                            _digest(cevidence,progress)!=entry['canonical_evidence_sha256']):
                         raise ValueError('Canonical archive evidence changed')
                     masters[canonical] = entry['sha256']
-                if digest(canonical)!=entry['sha256'] or digest(path)!=entry['sha256']:
+                if (_digest(canonical,progress,total_bytes=entry['canonical_stat']['size'])!=entry['sha256'] or
+                        _digest(path,progress,total_bytes=entry['stat']['size'])!=entry['sha256']):
                     raise ValueError('Dedup content changed')
                 _journal(journal,dict(event,event='hardlink_intent',canonical=str(canonical),freeze_readonly=True))
                 # Explicitly freeze historical copies; canonical source inputs
@@ -541,13 +676,18 @@ def apply_reclaim(plan, *, repo=None, scratch=None, active=None, tracked=None,
         except (OSError,ValueError) as error:
             skipped.append(dict(path=str(path),reason=str(error)))
     released = sum(e['bytes'] for e in results)
+    if progress is not None:
+        progress.update(force=True,status='complete',entries_checked=len(plan['entries']),
+                        completed_files=len(results),skipped_files=len(skipped),released_bytes=released)
     return dict(deleted_files=sum(e['action']=='delete' for e in results),
         deduplicated_files=sum(e['action']=='hardlink' for e in results),released_bytes=released,
         released_GiB=released/1024**3,completed=results,skipped=skipped,
         deletion='Permanent unlink; hardlinks freeze only historical copies. Keep journal/receipt.')
 
 
-def inventory(repo,scratch=None,report=None):
+def inventory(repo,scratch=None,report=None,progress=None):
+    if progress is not None:
+        progress.phase('enumerate_roots')
     roots = roots_for(repo,scratch)
     if scratch is not None and Path(scratch).is_dir():
         # Include unknown old temp layouts for diagnosis, NOT deletion scope.
@@ -556,12 +696,20 @@ def inventory(repo,scratch=None,report=None):
             if path.is_dir() and not path.is_symlink() and path.resolve() not in known:
                 roots.append((path.resolve(),'scratch_unclassified',path.name))
     groups,seen,largest,errors = defaultdict(lambda:dict(files=0,logical_bytes=0,allocated_bytes=0,hardlinked_files=0)),set(),[],[]
+    directories = files_seen = 0
+    if progress is not None:
+        progress.phase('inventory_files',roots=len(roots),directories=0,files_seen=0)
     for root,location,version in roots:
         for base,dirs,names in os.walk(root,followlinks=False):
             folder = Path(base)
+            directories += 1
             dirs[:] = [d for d in dirs if d!='.git' and not (folder/d).is_symlink()]
             for name in names:
                 path = folder/name
+                files_seen += 1
+                if progress is not None:
+                    progress.update(current_path=str(path),directories=directories,
+                                    files_seen=files_seen,errors=len(errors))
                 try:
                     if path.is_symlink():
                         continue
@@ -590,19 +738,28 @@ def inventory(repo,scratch=None,report=None):
         largest_files=[dict(path=p,logical_bytes=n) for n,p in sorted(largest,reverse=True)],errors=errors)
     if report:
         save(report,result)
+    if progress is not None:
+        progress.update(force=True,status='complete',directories=directories,
+                        files_seen=files_seen,errors=len(errors),allocated_bytes=result['allocated_bytes'])
     return result
 
 
 @contextmanager
-def lock_archives(repo,scratch=None):
+def lock_archives(repo,scratch=None,progress=None):
+    if progress is not None:
+        progress.phase('lock_archives',directories=0,locks=0)
     if os.name!='posix':
         raise RuntimeError('Cleanup CLI requires Linux/WSL process and flock checks')
     import fcntl
     locks=[]
+    directories = 0
     try:
         for root,_,_ in roots_for(repo,scratch):
             for base,dirs,names in os.walk(root,followlinks=False):
                 folder=Path(base)
+                directories += 1
+                if progress is not None:
+                    progress.update(current_path=str(folder),directories=directories,locks=len(locks))
                 dirs[:]=[d for d in dirs if d not in PROTECTED and not (folder/d).is_symlink()]
                 if '.lock' in names and not (folder/'.lock').is_symlink():
                     fd=os.open(folder/'.lock',os.O_RDONLY)
@@ -628,29 +785,40 @@ def main():
     parser.add_argument('--deduplicate-netlists',action='store_true')
     parser.add_argument('--ack-immutable-archives',action='store_true')
     parser.add_argument('--min-age-hours',type=float,default=24)
+    parser.add_argument('--progress-seconds',type=float,default=30,
+                        help='stderr JSON progress interval in seconds (default: 30)')
     args=parser.parse_args()
+    if not math.isfinite(args.progress_seconds) or args.progress_seconds <= 0:
+        parser.error('--progress-seconds must be finite and positive')
+    progress=Progress(args.phase,args.progress_seconds)
+    progress.phase('starting',repo=str(args.repo),scratch=str(args.scratch) if args.scratch else None)
     if args.phase=='inventory':
-        result=inventory(args.repo,args.scratch,args.report)
+        result=inventory(args.repo,args.scratch,args.report,progress=progress)
     else:
         if args.plan is None:
-            parser.error('--plan required; /tmp is recommended when quota is full')
-        with lock_archives(args.repo,args.scratch):
+            parser.error('--plan required; use a writable workspace logs/storage directory')
+        with lock_archives(args.repo,args.scratch,progress=progress):
             if args.phase=='plan':
                 if args.plan.exists():
                     raise ValueError('Plan already exists; choose a new filename')
                 result=plan_reclaim(args.repo,args.scratch,include_netlists=args.include_netlists,
-                    deduplicate_netlists=args.deduplicate_netlists,min_age_hours=args.min_age_hours)
+                    deduplicate_netlists=args.deduplicate_netlists,min_age_hours=args.min_age_hours,
+                    progress=progress)
+                progress.phase('write_plan',current_path=str(args.plan),candidate_files=result['candidate_files'])
                 save(args.plan,result)
             else:
+                progress.phase('load_plan',current_path=str(args.plan))
                 plan=load(args.plan)
                 stamp=time.strftime('%Y%m%d_%H%M%S')+'_'+uuid.uuid4().hex[:8]
                 journal=args.plan.with_name(args.plan.stem+'.'+stamp+'.journal.jsonl')
                 journal.touch(exist_ok=False)
                 result=apply_reclaim(plan,repo=args.repo,scratch=args.scratch,journal=journal,
-                    ack_immutable_archives=args.ack_immutable_archives)
+                    ack_immutable_archives=args.ack_immutable_archives,progress=progress)
                 receipt=args.plan.with_name(args.plan.stem+'.'+stamp+'.receipt.json')
+                progress.phase('write_receipt',current_path=str(receipt))
                 save(receipt,result)
                 result.update(receipt=str(receipt),journal=str(journal))
+    progress.phase('complete')
     print(json.dumps({k:v for k,v in result.items() if k not in {'entries','completed'}},indent=2,ensure_ascii=False))
 
 

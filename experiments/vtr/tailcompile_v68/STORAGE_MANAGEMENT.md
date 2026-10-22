@@ -71,6 +71,18 @@ python3 experiments/vtr/tailcompile_v68/storage.py plan \
 
 此更新没有放宽任何删除条件，也不改变模型、候选、VPR 命令或冻结的实验身份。工具哈希变化后，旧清理计划会被拒绝，必须重新生成计划；无需重新准备或训练模型。
 
+### 性能修复与进度日志
+
+`plan` 和 `apply` 现在只在各自操作开始时准备一次规范化的 active/tracked 路径集合；逐目录检查直接复用集合，分别查询全局和本目录依赖，不复制全局依赖集。旧实现的全局路径准备工作与“目录数 × 路径数”成正比；新版不再随目录数重复。
+
+`apply` 对同目录候选只枚举/解析一次，但每个 unlink 前仍重新核对文件 stat、范围与符号链接、trial/metrics 的普通文件身份和哈希、当前依赖和活动状态。系统活动路径还会定期刷新，不把计划阶段的安全快照直接用于执行。缓存不能绕过删除前重验证。
+
+CLI 默认每 30 秒向 stderr 输出一行 `storage_progress` JSON，启动和阶段切换立即输出；长耗时准备阶段也有后台心跳。可设 `--progress-seconds 10`。stdout 仍只有最终 JSON 汇总，方便旧解析器使用。后台运行应继续用 `>log 2>&1` 收集完整日志。
+
+阶段包括 `active_paths`、`tracked_files`、`enumerate_folders`、`dependencies`、`inspect_folders` 和执行时的 `validate_entries`；目录阶段显示 `completed_folders/total_folders`，执行显示 `processed_entries/total_entries`。这些是当前阶段进度，不是整次操作的百分比或 ETA。
+
+可用 `test_storage_performance.py` 检查复杂度回归：全局集合仅遍历/规范化一次、依赖索引仅成员查询、同目录只枚举一次，以及删除过程中后续文件或证据变化仍被保护。源码修复不等于已测得服务器加速倍数；NAS I/O、完整 SHA 和审计 fsync 仍需要时间。
+
 报告、plan、receipt/journal 均在 workspace 内留档。若配额耗尽导致 `git pull` 或写审计失败，先停止继续产生输出，确认可释放空间或申请配额；不要无日志强删文件，也不要自动下载脚本或写清单到 workspace 之外。确实需要外部应急目录时另行确认。
 
 也可以先使用仓库原有的旧版清理工具释放空间（它不删除 `.net`，不动 v6.8）：
