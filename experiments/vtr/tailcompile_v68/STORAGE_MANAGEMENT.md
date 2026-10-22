@@ -1,5 +1,7 @@
 # v6.8 磁盘配额恢复与产物保留策略
 
+旧版本仍占用的大量数据应另用 [全版本清理方案](../STORAGE_MANAGEMENT.md) 盘点和处理。下面的 v6.8 工具有意只操作当前 cohort，不替代 v0–v6.7 及 `vtr_work` 的旧版清理。
+
 ## 本次报错的含义
 
 `OSError: [Errno 122] Disk quota exceeded` 是用户/项目配额耗尽，不一定是整个文件系统已满。`df -h` 即使显示 TB 级空闲，也不能排除个人 quota。用平台配额页面或 `quota -s` 核对；`df -i` 可另查 inode。
