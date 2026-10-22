@@ -61,6 +61,16 @@ python3 experiments/vtr/tailcompile_v68/storage.py plan \
 
 `inventory` 仅读取元数据，不解压 RRG，不读取大网表正文。报告按真实文件类型统计文件数、逻辑大小、唯一 inode 的实际占用及大文件排行。`plan` 不删除文件，输出 `candidate_files`、`allocated_GiB`、按类型汇总和跳过原因；完整逐文件清单在 `$cleanup_plan`。默认允许清理刚结束的运行，不必等待旧脚本的 24 小时。
 
+### 查清为什么还有大量已结束产物
+
+新版 `plan` 的发现范围包括仅有 trial、仅有 metrics、或只有原始大输出的 route 目录；**缺少完整结果仍然禁止删除**，只是现在会显示，而不再静默漏计。新增字段：
+
+- `retained_summaries`：按“保留原因/文件类型”列文件数、字节和最多三个路径样例。`missing_completed_evidence`、`incomplete_or_nonroute_evidence`、`input_dependency`、`active`、`git_tracked` 等含义不同，不能一概强删。
+- `observed_storage_policy`：该 cohort 最近写入的保留策略。为空可能表示记录尚未生成；为 false 只能说明最近一次记录关闭了回收，不能据此推断全部历史任务。
+- `inspected_folders`、`retention_scope`：诊断覆盖的工作目录及限制。输入/模型/生成候选/共享缓存和历史 `_attempts/_interrupted` 不进入本计划，不能把计划大小当作整个 cohort 的总量。
+
+此更新没有放宽任何删除条件，也不改变模型、候选、VPR 命令或冻结的实验身份。工具哈希变化后，旧清理计划会被拒绝，必须重新生成计划；无需重新准备或训练模型。
+
 报告、plan、receipt/journal 均在 workspace 内留档。若配额耗尽导致 `git pull` 或写审计失败，先停止继续产生输出，确认可释放空间或申请配额；不要无日志强删文件，也不要自动下载脚本或写清单到 workspace 之外。确实需要外部应急目录时另行确认。
 
 也可以先使用仓库原有的旧版清理工具释放空间（它不删除 `.net`，不动 v6.8）：
@@ -101,6 +111,7 @@ bash experiments/vtr/tailcompile_v68/run_pipeline.sh recover
 # 成功/unroutable 不重跑；只重试 other_failure/killed 等基础设施失败。
 export TAILCOMPILE_V68_RETRY_FAILED=1
 export TAILCOMPILE_V68_PRUNE_COMPLETED=1
+export TAILCOMPILE_V68_MIN_FREE_GIB=100
 export TAILCOMPILE_V68_JOBS=32
 export TAILCOMPILE_V68_GENERATION_JOBS=32
 
@@ -117,9 +128,13 @@ echo "PID=$! LOG=$log"
 
 新版默认 `TAILCOMPILE_V68_PRUNE_COMPLETED=1`：子 VPR 结束、trial 与 metrics 成功写入之后立即清理该次运行的可复现大输出。成功、不可布线和已记录的异常均保留紧凑证据，复用时不依赖被删的文件。需要暂时保留原始输出做诊断时显式设为 `0`，但要预留空间，结束后手动 plan/apply。
 
+不建议为了“先完成实验”长期关闭回收。原目录续跑 `feedback` 时，已缓存的成功/不可布线 route 也会重新读取日志、保存紧凑指标并执行回收，**不需要重新运行 VPR**。它只清理本阶段触达的 route，不会顺带扫描其他历史阶段。手动 plan/apply 则需要先停下对应 cohort 的控制器和所有 worker；不能与运行中的 pipeline 同时清理。
+
 调度器只保留至多 JOBS 个在途任务；一旦检测到 ENOSPC/EDQUOT 或 VPR 日志明确报告配额耗尽，不再派发新任务，等待已运行任务结束并保存结果，不强杀有价值的并发结果。普通不可布线仍是正常标签，不触发该保护。
 
 `TAILCOMPILE_V68_MIN_FREE_GIB` 默认 10：启动新命令前检查文件系统剩余空间。**它不是个人 quota 检测器**；共享盘余量再大，也可能先撞个人配额。查看平台 quota 并据库存留足并发峰值：
+
+上面的续跑示例显式提高到 100 GiB，为并发任务留余量；这是调度保护，不保证所有已启动任务的输出都能装下，也不测量个人配额。修改环境变量不会改变已启动的旧进程，只有重新启动的 pipeline 才使用新值。
 
 `预算 ≳ 固定输入/图/模型缓存 + JOBS × 最大单次运行瞬时输出 + 安全余量`
 

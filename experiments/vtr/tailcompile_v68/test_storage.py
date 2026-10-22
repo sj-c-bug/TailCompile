@@ -124,8 +124,47 @@ class StorageTest(unittest.TestCase):
         files = [self.file('sha.net', root=p) for p in (no_metrics, running, unrecorded)]
         plan = self.plan()
         self.assertEqual(plan['candidate_files'], 0)
+        self.assertEqual(plan['skipped']['missing_completed_evidence'], 2)
+        self.assertEqual(plan['skipped']['incomplete_or_nonroute_evidence'], 1)
+        self.assertEqual(plan['retained_summaries']['missing_completed_evidence/packed_net']['files'], 2)
+        self.assertEqual(plan['retained_summaries']['incomplete_or_nonroute_evidence/packed_net']['files'], 1)
         self.apply(plan)
         self.assertTrue(all(p.exists() for p in files))
+
+    def test_retained_diagnostics_show_policy_and_do_not_scan_protected_inputs(self):
+        folder = self.trial()
+        protected = self.file('input.net', 'important input\n', root=folder)
+        active = self.file('busy.net', 'open by a worker\n', root=folder)
+        tracked = self.file('tracked.net', 'tracked input\n', root=folder)
+        self.active.add(active.resolve())
+        self.tracked.add(tracked.resolve())
+        canonical = self.file('inputs/sha/never_delete.net', 'canonical\n')
+        write(self.cohort/'storage_policy.json', dict(prune_completed_vpr_payloads=False))
+        plan = self.plan()
+        self.assertFalse(plan['observed_storage_policy']['prune_completed_vpr_payloads'])
+        for reason, path in [('input_dependency', protected), ('active', active), ('git_tracked', tracked)]:
+            group = plan['retained_summaries'][reason+'/packed_net']
+            self.assertEqual(group['files'], 1)
+            self.assertEqual(group['logical_bytes'], path.stat().st_size)
+            self.assertIn(str(path), group['examples'])
+        self.assertFalse(any(str(canonical) in group['examples']
+                             for group in plan['retained_summaries'].values()))
+        self.assertEqual(plan['candidate_files'], 0)
+        self.assertTrue(all(p.exists() for p in (protected, active, tracked, canonical)))
+
+    def test_retained_hardlink_bytes_are_not_double_counted(self):
+        folder = self.trial()
+        first = self.file('one.net', 'shared retained payload\n', root=folder)
+        second = folder/'two.net'
+        try:
+            second.hardlink_to(first)
+        except OSError as error:
+            self.skipTest(str(error))
+        plan = self.plan()
+        group = plan['retained_summaries']['not_regular_or_hardlinked/packed_net']
+        self.assertEqual(group['files'], 2)
+        self.assertEqual(group['allocated_bytes'], storage.snapshot(first)['allocated_bytes'])
+        self.assertEqual(plan['candidate_files'], 0)
 
     def test_mismatched_metrics_and_trial_status_are_preserved(self):
         folder = self.trial()

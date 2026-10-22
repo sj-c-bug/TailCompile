@@ -121,6 +121,8 @@ python3 experiments/vtr/storage_reclaim.py apply \
 
 ## 第二轮（可选）：封存的逐次输入副本去重
 
+该步骤现在即可预览，但 apply 必须确认旧控制器和 worker（包括其他实例）已停止。它不修改当前 v6.8，也不把旧版 canonical 输入与归档副本链接在一起。约 459 GiB 是旧实验和 scratch 的占用，不是可释放量。
+
 如果第一轮后剩余的大头确实是成千份同内容的 `input.net/locked-input.net`，不能一边要求保留旧运行的输入路径，一边直接把这些路径删除。可对**已完成且不再原位修改的旧运行副本**规划 SHA256 去重：
 
 ```bash

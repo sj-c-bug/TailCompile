@@ -217,7 +217,7 @@ def inspect_trial(folder, *, repo=None, active=None, tracked=None, dependencies=
     active = active_paths(folder) if active is None else {Path(p).resolve() for p in active}
     tracked = tracked_files(repo, folder=folder) if tracked is None else {Path(p).resolve() for p in tracked}
     dependencies = set(dependencies or ()) | input_dependencies(trial, folder)
-    entries, skipped = [], Counter()
+    entries, skipped, retained = [], Counter(), []
     for path in payloads:
         kind = raw_kind(path.name)
         if not kind:
@@ -228,28 +228,36 @@ def inspect_trial(folder, *, repo=None, active=None, tracked=None, dependencies=
         resolved = path.resolve()
         info = snapshot(path)
         lower = path.name.lower()
+        reason = None
         if (lower in {'input.net', 'input.net.post_routing'} or 'locked-input' in lower or
                 lower.startswith(('gp.', 'structure.')) or resolved in dependencies):
-            skipped['input_dependency'] += 1
+            reason = 'input_dependency'
         elif resolved in tracked:
-            skipped['git_tracked'] += 1
+            reason = 'git_tracked'
         elif _busy(resolved, active):
-            skipped['active'] += 1
+            reason = 'active'
         elif not info['regular'] or info['links'] != 1:
-            skipped['not_regular_or_hardlinked'] += 1
+            reason = 'not_regular_or_hardlinked'
         elif resolved.parent != folder:
-            skipped['outside_trial'] += 1
+            reason = 'outside_trial'
+        if reason:
+            skipped[reason] += 1
+            retained.append(dict(path=str(path), kind=kind, reason=reason, stat=info))
         else:
             entries.append(dict(path=str(resolved), folder=str(folder), kind=kind,
                                 stat=info, **evidence))
-    return dict(eligible=True, reason='completed_route', entries=entries, skipped=dict(skipped), **evidence)
+    return dict(eligible=True, reason='completed_route', entries=entries,
+                retained=retained, skipped=dict(skipped), **evidence)
 
 
 def trial_folders(root):
     for base, dirs, names in os.walk(root, followlinks=False):
         folder = Path(base)
         dirs[:] = [name for name in dirs if name not in PROTECTED and not (folder/name).is_symlink()]
-        if 'trial.json' in names and 'metrics.json' in names:
+        # Missing evidence remains a deletion blocker, but must be visible in
+        # the diagnostic report rather than silently omitted from the plan.
+        if _route_scope(folder) and ('trial.json' in names or 'metrics.json' in names or
+                any(raw_kind(name) for name in names)):
             yield folder
 
 
@@ -294,14 +302,37 @@ def plan_cleanup(root, *, repo=None, min_age_hours=0, active=None, tracked=None)
     folders = list(trial_folders(root))
     dependencies = referenced_paths(root)
     entries, skipped, kinds = [], Counter(), defaultdict(lambda: dict(files=0, allocated_bytes=0, logical_bytes=0))
+    retained_groups, retained_seen = {}, set()
+
+    def record_retained(path, kind, reason, info):
+        key = reason+'/'+kind
+        group = retained_groups.setdefault(key, dict(files=0, logical_bytes=0,
+            allocated_bytes=0, examples=[]))
+        group['files'] += 1
+        if info['regular']:
+            group['logical_bytes'] += info['size']
+            inode = info['device'], info['inode']
+            if inode not in retained_seen:
+                group['allocated_bytes'] += info['allocated_bytes']
+                retained_seen.add(inode)
+        if len(group['examples']) < 3:
+            group['examples'].append(str(path))
+
     for folder in folders:
         inspection = inspect_trial(folder, repo=repo, active=active, tracked=tracked, dependencies=dependencies)
         skipped.update(inspection['skipped'])
         if not inspection['eligible']:
             skipped[inspection['reason']] += 1
+            for path in folder.iterdir():
+                kind = raw_kind(path.name)
+                if kind:
+                    record_retained(path, kind, inspection['reason'], snapshot(path))
+        for retained in inspection.get('retained', []):
+            record_retained(retained['path'], retained['kind'], retained['reason'], retained['stat'])
         for entry in inspection['entries']:
             if time.time_ns()-entry['stat']['mtime_ns'] < min_age_hours*3600*1e9:
                 skipped['too_recent'] += 1
+                record_retained(entry['path'], entry['kind'], 'too_recent', entry['stat'])
                 continue
             entries.append(entry)
             group = kinds[entry['kind']]
@@ -309,10 +340,19 @@ def plan_cleanup(root, *, repo=None, min_age_hours=0, active=None, tracked=None)
             group['allocated_bytes'] += entry['stat']['allocated_bytes']
             group['logical_bytes'] += entry['stat']['size']
     allocated = sum(e['stat']['allocated_bytes'] for e in entries)
+    policy_path = root/'storage_policy.json'
+    try:
+        observed_policy = load(policy_path) if policy_path.is_file() else None
+    except (OSError, ValueError) as error:
+        observed_policy = dict(read_error=str(error))
     return dict(schema=SCHEMA, root=str(root), repo=str(Path(repo).resolve()) if repo else None,
                 created_unix=time.time(), tool_sha256=digest(__file__), min_age_hours=min_age_hours,
                 candidate_files=len(entries), allocated_bytes=allocated, allocated_GiB=allocated/1024**3,
                 summaries=dict(kinds), skipped=dict(skipped), entries=entries,
+                inspected_folders=len(folders), observed_storage_policy=observed_policy,
+                retained_summaries={key:dict(value, allocated_GiB=value['allocated_bytes']/1024**3)
+                    for key,value in sorted(retained_groups.items(), key=lambda row:-row[1]['allocated_bytes'])},
+                retention_scope='Route directories only; protected inputs, models, generation, shared caches and historical attempts are excluded. Retained allocated bytes count each regular inode once.',
                 unreadable_unrelated_processes=getattr(active_paths, 'unreadable_unrelated_processes', 0),
                 deletion='Permanent listed raw payload deletion; regeneration requires VPR rerun. Inputs and compact evidence retained.')
 
@@ -341,8 +381,8 @@ def apply_cleanup(plan, *, repo=None, active=None, tracked=None, journal=None):
             continue
         record = dict(path=str(path), kind=entry['kind'], allocated_bytes=entry['stat']['allocated_bytes'], unix_time=time.time())
         if journal:
-            # Write intent before unlink. A plan in /tmp allows emergency cleanup
-            # even when the shared project quota cannot accept another byte.
+            # Write intent before unlink. Keep plan/journal in the designated
+            # workspace; if it is unwritable, stop before deleting anything.
             with Path(journal).open('a', encoding='utf-8') as stream:
                 stream.write(json.dumps(dict(record, event='delete_intent')) + '\n')
                 stream.flush()
@@ -473,7 +513,7 @@ def main():
         result = inventory(root, repo=args.repo, report=args.report)
     else:
         if not args.plan:
-            parser.error('--plan is required for plan/apply; /tmp is permitted when project quota is full')
+            parser.error('--plan is required for plan/apply; use a writable workspace logs/storage directory')
         with cohort_lock(root):
             if args.phase == 'plan':
                 if args.plan.exists():

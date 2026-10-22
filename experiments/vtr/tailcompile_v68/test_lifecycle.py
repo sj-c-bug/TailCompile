@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 import experiment
 import lifecycle
+import storage
 from common import read, write
 
 
@@ -124,6 +125,62 @@ class LifecycleTests(unittest.TestCase):
         cleanup.assert_called_once()
         self.assertEqual(result['status'], 'success')
         self.assertEqual(read(folder/'metrics.json'), result)
+
+    def test_cached_route_prunes_payload_without_starting_vpr(self):
+        repo = self.root/'repo'
+        here = repo/'experiments/vtr/tailcompile_v68'
+        out = here/'runs/fixture'
+        blif = out/'inputs/x/mapped.blif'
+        blif.parent.mkdir(parents=True)
+        blif.write_text('synthetic canonical mapped input\n', encoding='utf-8')
+        record = dict(mapped_blif=str(blif), design='x', family='xf',
+                      split='train', device_width=14)
+        args = Namespace(out=out, binary=repo/'vpr', arch=repo/'arch.xml',
+                         identity=dict(fixture='cached-route'), timeout=10,
+                         heartbeat=1, retry_failed=True, retry_timeouts=True)
+        command = [str(value) for value in experiment.vpr_command(args, blif, 80, 321, 14)]
+        identity = dict(args.identity, stage='route', design='x', width=80, seed=321,
+                        mapped_blif_sha256=experiment.sha(blif), initializer_sha256=None,
+                        teacher=False, device_width=14, command=command, hook_env={})
+
+        for status, returncode, log in (
+                ('success', 0, 'VPR succeeded\nFinal critical path delay (least slack): 5.0\nTotal wirelength: 100\n'),
+                ('unroutable', 2, 'Circuit is unroutable with a channel width factor of 80\n')):
+            with self.subTest(status=status):
+                folder = out/'feedback/runs/x/w80'/status/'s321'
+                folder.mkdir(parents=True)
+                original = dict(identity=identity, status=status, returncode=returncode,
+                                wall_seconds=2.0, completed_unix=1.0)
+                write(folder/'trial.json', original)
+                (folder/'vpr.out').write_text(log, encoding='utf-8')
+                raw = folder/'x.NET'
+                raw.write_text('synthetic disposable packed net\n', encoding='utf-8')
+                protected_input = folder/'input.net'
+                protected_input.write_text('synthetic retained input\n', encoding='utf-8')
+                keep = {path: path.read_bytes() for path in (
+                    blif, protected_input, folder/'trial.json', folder/'vpr.out')}
+
+                with patch.dict(os.environ, {'TAILCOMPILE_V68_PRUNE_COMPLETED':'1'}), \
+                        patch.object(experiment, 'HERE', here), \
+                        patch('common.subprocess.Popen', side_effect=AssertionError('Cached route launched VPR')) as popen, \
+                        patch.object(experiment, 'check_free_space', side_effect=AssertionError('Cached route checked new-task space')) as space, \
+                        patch.object(storage, 'active_paths', return_value=set()), \
+                        patch.object(storage, 'tracked_files', return_value=set()), \
+                        redirect_stdout(io.StringIO()):
+                    result = experiment.route(args, record, 80, 321, folder)
+
+                popen.assert_not_called()
+                space.assert_not_called()
+                self.assertFalse(raw.exists())
+                self.assertEqual(result['status'], status)
+                self.assertEqual(result['wall_seconds'], original['wall_seconds'])
+                self.assertEqual(result['identity'], identity)
+                self.assertEqual(read(folder/'metrics.json'), result)
+                self.assertEqual(result['cpd'], 5.0 if status == 'success' else None)
+                self.assertTrue((folder/'payload_pruned.json').is_file())
+                self.assertFalse((folder/'payload_prune_pending.json').exists())
+                for path, content in keep.items():
+                    self.assertEqual(path.read_bytes(), content, str(path))
 
 
 if __name__=='__main__':
