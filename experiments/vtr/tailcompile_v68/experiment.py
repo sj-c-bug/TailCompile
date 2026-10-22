@@ -22,10 +22,12 @@ import time
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(1, str(HERE.parent))
-from common import (COMMIT, classify, emit, execute, fingerprint, freeze, parallel,
+from common import (COMMIT, classify, emit, execute, fingerprint, freeze,
                     read, recover, sha, write)
 from analyze_tailcompile_runtime import parse_vpr_log
 from scheduling import DEFAULT_JOBS, compatible_protocol, resolve_concurrency
+from lifecycle import (StoragePressureError, after_metrics, check_free_space,
+                       log_storage_failure, parallel, record_policy)
 
 
 def identity(a):
@@ -86,6 +88,13 @@ def protocol(a):
 
 
 def call(a, command, folder, signature, *, env=None, marker=None):
+    previous = Path(folder)/'trial.json'
+    saved = read(previous) if previous.exists() else None
+    retry = saved and ((saved['status']=='timeout' and a.retry_timeouts) or
+        (saved['status'] not in {'success','unroutable','complete','timeout'} and a.retry_failed))
+    # Cached trials can still be parsed/pruned on a low-space filesystem.
+    if saved is None or retry:
+        check_free_space(a.out)
     return execute(command, folder, dict(a.identity, **signature), env=env,
         timeout=a.timeout, heartbeat=a.heartbeat, retry_failed=a.retry_failed,
         retry_timeouts=a.retry_timeouts, required_marker=marker)
@@ -177,6 +186,13 @@ def route(a, record, width, seed, directory, *, init=None, teacher=False, extra=
         phases=parse_vpr_log(text),
         teacher_prefix=str(directory/'gp') if teacher else None)
     write(directory/'metrics.json', row)
+    # These raw outputs are no longer consumed: resume/feedback use the log,
+    # trial and metrics, while teacher gp.* and generated inputs remain intact.
+    # Cleanup happens AFTER the VPR stopwatch and never changes its command.
+    after_metrics(directory, repo=HERE.parents[2])
+    if log_storage_failure(text, result['returncode']):
+        raise StoragePressureError(f'VPR reported disk quota/full filesystem: {directory}; '
+            'complete evidence retained; no further tasks should be dispatched')
     return row
 
 
@@ -699,6 +715,7 @@ def main():
         from data import inventory
         result=inventory(read(a.cohort),a.vtr);write(a.out/'inventory.json',result)
         emit('inventory_complete',report=str(a.out/'inventory.json'));return
+    record_policy(a.out)
     {'prepare':prepare,'feedback':feedback,'evaluate':evaluate,'timing':timing}[a.phase](a)
 
 

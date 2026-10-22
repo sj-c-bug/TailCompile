@@ -203,6 +203,10 @@ bash experiments/vtr/tailcompile_v68/run_pipeline.sh status
 
 ## 验收、恢复和计时解释
 
+### 磁盘满与自动回收
+
+详见 [STORAGE_MANAGEMENT.md](STORAGE_MANAGEMENT.md)。新版在 VPR 结束且 trial/metrics 已持久化后，默认清理该次运行的派生 `.net/.net.post_routing/.route` 与详细报告，保留输入、教师 TSV、生成候选、图、模型及紧凑证据。通过 `storage.py inventory/plan/apply` 先盘点/预览再手动清理现有积压；磁盘配额已满时清单和审计可写 `/tmp`。遇到配额错误停止继续派发，但保留已完成结果，不清空原实验目录。`TAILCOMPILE_V68_PRUNE_COMPLETED=0` 可临时关闭自动清理。
+
 ```bash
 bash experiments/vtr/tailcompile_v68/run_pipeline.sh status
 python3 experiments/vtr/tailcompile_v68/test_data.py
@@ -211,6 +215,8 @@ python3 experiments/vtr/tailcompile_v68/test_supervision.py
 python3 experiments/vtr/tailcompile_v68/test_pipeline.py
 python3 experiments/vtr/tailcompile_v68/test_concurrency.py
 python3 experiments/vtr/tailcompile_v68/test_generation_parallel.py
+python3 experiments/vtr/tailcompile_v68/test_storage.py
+python3 experiments/vtr/tailcompile_v68/test_lifecycle.py
 python3 experiments/vtr/tailcompile_v68/test_hook.py
 ```
 
