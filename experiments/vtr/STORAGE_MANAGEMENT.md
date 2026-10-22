@@ -17,7 +17,53 @@
 
 800 GB 是用户报告的旧版总量，不等于可安全释放量。需要服务器 inventory 输出按版本/文件类型统计，再据 plan 的预计释放量执行；本地无法代替服务器确认配额或实际用量。
 
-## 第一轮：覆盖全部旧版，先删除不再被引用的输出
+## 先定位占用，再决定清理范围
+
+若目前连空间究竟在哪都不清楚，先运行下面的全账户只读盘点，不必先猜测或删除版本目录。
+
+## 一次性全账户只读盘点（包括项目以外的占用）
+
+`disk_audit.py` 从指定账户挂载目录扫描，而不是只扫描 TailCompile。隐藏缓存、Conda、其他工作区、VTR 构建均会进入统计；仓库/scratch 若在主根之外，作为额外扫描根加入。重复和相互包含的路径合并，不跟随目录内部的符号链接，不跨越其他文件系统。每个文件只读取元数据，不计算内容哈希、不读取模型/网表正文，不做删除或权限修改。
+
+在 CPU 实例执行，一次后台完成：
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+
+audit_root="/inspire/hdd/global_user/changshunjie-253114010247"
+audit_dir="$(mktemp -d /tmp/tailcompile_disk_audit.XXXXXX)"
+
+nohup python3 -u experiments/vtr/disk_audit.py \
+  --root "$audit_root" \
+  --extra-root "$TAILCOMPILE_REPO" \
+  --extra-root "${TAILCOMPILE_SCRATCH:-$TAILCOMPILE_REPO/vtr_work}" \
+  --extra-root "${CONDA_PREFIX:-$audit_root}" \
+  --out "$audit_dir" \
+  >"$audit_dir/run.log" 2>&1 </dev/null &
+
+echo "$!" > "$audit_dir/audit.pid"
+echo "PID=$!"
+echo "报告目录=$audit_dir"
+echo "进度日志=$audit_dir/run.log"
+```
+
+只在终端显示上述几行；不会把完整清单刷到终端。检查进度用 `tail -n 10 "$audit_dir/run.log"`，不需要 `cat` 全量 CSV。最终以 `summary.json` 的 `complete` 和日志完成标记判断是否跑完；同时查看权限错误、跳过挂载点等覆盖限制，不把“扫描结束”等同于“整台 GPFS 的所有文件均可见”。
+
+结果包括：
+
+- `report.log`：一次性可读汇总，含 `df`/inode/可用 quota 等环境信息、各扫描根和大目录、类型分布、最大文件、错误提示。
+- `directories.csv`：全量目录统计，便于继续下钻具体 workspace、缓存、版本和子实验目录；目录大小是包含后代的累计值，不能把所有行相加。
+- `file_types.csv`：按真实后缀区分 `.net.post_routing`、RRG、BLIF、模型、压缩包、JSON 等。
+- `largest_files.csv`：最大的文件及大小；不用复制长终端输出。
+- `deleted_open.csv`：仅本机 `/proc` 可见、位于扫描根的已删除但仍被打开的文件，不列出无关进程命令参数。其他 CPU/GPU 实例中的打开句柄不在本机可见范围。
+- `summary.json`、`progress.json`、`errors.log`、`run.log`：机器可读统计、进度和完整诊断。
+
+逻辑大小与 `st_blocks*512` 估算的已分配大小分别记录；硬链接和目录别名尽量按 inode 去重，归属按首次遇到的路径统计。`files` 与逻辑总量也是去重后的普通文件统计，不是硬链接路径数。GPFS 配额、快照、其他节点的打开文件、权限边界及扫描期间的变化，均可能造成 `df`、目录统计和配额的差异；这是诊断，不是原子快照。`quota` 等命令不存在或无权限时会记录限制，不为查询配额执行提权。
+
+先发送 **`report.log` 和 `summary.json`** 即可；需要下钻时再补对应 CSV。全账户文件名和目录可能包含隐私，不要把这些报告提交到公共 Git 仓库。`/tmp` 为实例本地临时目录，关闭实例前把需要的报告复制到有空间的持久目录或下载保存。
+
+## 旧版本清理命令
 
 `storage_reclaim.py` 的旧版范围包含 v0/v1/v2/v3/v4/v5/v6/v6.1–v6.7，以及对应的 scratch；**不操作 v6.8、3D 实验或未知版本**。已结束旧实验可以清理，但控制器和子 VPR 必须先停止。对于当前还在运行的 v6.8，建议先正常停止后统一盘点，避免磁盘仍在增长。
 
