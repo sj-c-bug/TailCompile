@@ -404,7 +404,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, help="Explicit account directory to audit")
     parser.add_argument("--extra-root", action="append", default=[], help="Additional repo/scratch/conda root; repeatable")
-    parser.add_argument("--out", required=True, help="Small output directory, preferably under /tmp")
+    parser.add_argument("--out", required=True, help="New output directory inside the user's workspace, e.g. repo/logs/storage/account_audit")
     parser.add_argument("--heartbeat-seconds", type=float, default=30)
     parser.add_argument("--no-deleted-open", action="store_true", help="Skip local /proc deleted-open check")
     args = parser.parse_args()

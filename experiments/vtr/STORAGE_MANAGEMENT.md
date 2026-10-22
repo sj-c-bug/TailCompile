@@ -1,5 +1,13 @@
 # 全版本实验数据清理与管理
 
+## 服务器写入路径约束
+
+服务器端新增的日志、清单、审计、缓存和临时输出，默认均放在
+`/inspire/hdd/project/project-public/changshunjie-253114010247/changshunjie-253114010247/workspace/DAC2027/`
+以内。TailCompile 的存储报告统一放在 `$TAILCOMPILE_REPO/logs/storage/`。不要默认写入账户根目录或实例 `/tmp`；若配额耗尽导致该目录无法写入，应先说明情况并征得同意，再使用外部应急目录，不自动回退。
+
+只读盘点可以查看上述目录之外的已有文件，不会移动或删除其他项目。`resolve()`、挂载信息或日志可能显示 `/inspire/hdd/global_user/.../workspace/DAC2027/` 的同一物理路径别名，这不代表另建了一份 workspace；命令仍使用指定的 project-public 路径。
+
 ## 为什么旧版清过一次仍有约 800 GB
 
 旧 `storage_cleanup.py` 仅清理 v0–v6.5 的部分 `.route`、RRG 和详细报告，保留所有 `.net`，且排除 v6.6/v6.7。它不是完整的旧版归档清理工具。
@@ -32,7 +40,9 @@ cd "$TAILCOMPILE_REPO"
 git pull --ff-only
 
 audit_root="/inspire/hdd/global_user/changshunjie-253114010247"
-audit_dir="$(mktemp -d /tmp/tailcompile_disk_audit.XXXXXX)"
+storage_dir="$TAILCOMPILE_REPO/logs/storage"
+mkdir -p "$storage_dir"
+audit_dir="$(mktemp -d "$storage_dir/account_audit.XXXXXX")"
 
 nohup python3 -u experiments/vtr/disk_audit.py \
   --root "$audit_root" \
@@ -61,21 +71,23 @@ echo "进度日志=$audit_dir/run.log"
 
 逻辑大小与 `st_blocks*512` 估算的已分配大小分别记录；硬链接和目录别名尽量按 inode 去重，归属按首次遇到的路径统计。`files` 与逻辑总量也是去重后的普通文件统计，不是硬链接路径数。GPFS 配额、快照、其他节点的打开文件、权限边界及扫描期间的变化，均可能造成 `df`、目录统计和配额的差异；这是诊断，不是原子快照。`quota` 等命令不存在或无权限时会记录限制，不为查询配额执行提权。
 
-先发送 **`report.log` 和 `summary.json`** 即可；需要下钻时再补对应 CSV。全账户文件名和目录可能包含隐私，不要把这些报告提交到公共 Git 仓库。`/tmp` 为实例本地临时目录，关闭实例前把需要的报告复制到有空间的持久目录或下载保存。
+先发送 **`report.log` 和 `summary.json`** 即可；需要下钻时再补对应 CSV。全账户文件名和目录可能包含隐私，不要把这些报告提交到公共 Git 仓库。日志留在 workspace 内的持久目录，不依赖实例本地临时盘。
 
 ## 旧版本清理命令
 
 `storage_reclaim.py` 的旧版范围包含 v0/v1/v2/v3/v4/v5/v6/v6.1–v6.7，以及对应的 scratch；**不操作 v6.8、3D 实验或未知版本**。已结束旧实验可以清理，但控制器和子 VPR 必须先停止。对于当前还在运行的 v6.8，建议先正常停止后统一盘点，避免磁盘仍在增长。
 
-在服务器更新后执行。所有清单写 `/tmp`，避免项目配额满时连清理记录都写不出：
+在服务器更新后执行。所有清单保存在 workspace 内；应为日志和清理审计预留少量可写空间：
 
 ```bash
 cd "$TAILCOMPILE_REPO"
 git pull --ff-only
 
 stamp="$(date +%Y%m%d_%H%M%S)"
-old_report="/tmp/tailcompile_old_inventory_${stamp}.json"
-old_plan="/tmp/tailcompile_old_cleanup_${stamp}.json"
+storage_dir="$TAILCOMPILE_REPO/logs/storage"
+mkdir -p "$storage_dir"
+old_report="$storage_dir/tailcompile_old_inventory_${stamp}.json"
+old_plan="$storage_dir/tailcompile_old_cleanup_${stamp}.json"
 
 python3 experiments/vtr/storage_reclaim.py inventory \
   --repo "$TAILCOMPILE_REPO" \
@@ -112,7 +124,9 @@ python3 experiments/vtr/storage_reclaim.py apply \
 如果第一轮后剩余的大头确实是成千份同内容的 `input.net/locked-input.net`，不能一边要求保留旧运行的输入路径，一边直接把这些路径删除。可对**已完成且不再原位修改的旧运行副本**规划 SHA256 去重：
 
 ```bash
-dedup_plan="/tmp/tailcompile_old_dedup_$(date +%Y%m%d_%H%M%S).json"
+storage_dir="$TAILCOMPILE_REPO/logs/storage"
+mkdir -p "$storage_dir"
+dedup_plan="$storage_dir/tailcompile_old_dedup_$(date +%Y%m%d_%H%M%S).json"
 
 python3 experiments/vtr/storage_reclaim.py plan \
   --repo "$TAILCOMPILE_REPO" \

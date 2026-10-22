@@ -1,5 +1,7 @@
 # v6.8 磁盘配额恢复与产物保留策略
 
+服务器新增文件默认只写入指定的 `workspace/DAC2027/` 内；日志和清理清单统一写 `$TAILCOMPILE_REPO/logs/storage/`。参见 [服务器写入路径约束](../STORAGE_MANAGEMENT.md#服务器写入路径约束)。不默认使用外部临时目录；空间紧急时先说明并获得同意。
+
 旧版本仍占用的大量数据应另用 [全版本清理方案](../STORAGE_MANAGEMENT.md) 盘点和处理。下面的 v6.8 工具有意只操作当前 cohort，不替代 v0–v6.7 及 `vtr_work` 的旧版清理。
 
 ## 本次报错的含义
@@ -39,8 +41,10 @@ cd "$TAILCOMPILE_REPO"
 git pull --ff-only
 
 export TAILCOMPILE_V68_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v68/runs/hier_init_001"
-storage_report="/tmp/v68_storage_$(date +%Y%m%d_%H%M%S).json"
-cleanup_plan="/tmp/v68_cleanup_$(date +%Y%m%d_%H%M%S).json"
+storage_dir="$TAILCOMPILE_REPO/logs/storage"
+mkdir -p "$storage_dir"
+storage_report="$storage_dir/v68_storage_$(date +%Y%m%d_%H%M%S).json"
+cleanup_plan="$storage_dir/v68_cleanup_$(date +%Y%m%d_%H%M%S).json"
 
 df -h "$TAILCOMPILE_V68_OUT"
 df -i "$TAILCOMPILE_V68_OUT"
@@ -57,21 +61,14 @@ python3 experiments/vtr/tailcompile_v68/storage.py plan \
 
 `inventory` 仅读取元数据，不解压 RRG，不读取大网表正文。报告按真实文件类型统计文件数、逻辑大小、唯一 inode 的实际占用及大文件排行。`plan` 不删除文件，输出 `candidate_files`、`allocated_GiB`、按类型汇总和跳过原因；完整逐文件清单在 `$cleanup_plan`。默认允许清理刚结束的运行，不必等待旧脚本的 24 小时。
 
-`/tmp` 通常是实例本地磁盘，不受共享项目的同一配额约束，但应先确认它还有空间。清理后将报告、plan、receipt/journal 复制到有空间的 logs 目录留档；换实例前不要遗失 `/tmp` 审计记录。
-
-若 `git pull` 本身也因配额失败，可把本次独立、只依赖 Python 标准库的工具下载到实例 `/tmp`，无需先向项目盘写入代码。将下文 inventory/plan/apply 命令中的脚本路径改成 `"$storage_tool"`，清理后再 `git pull --ff-only` 启用自动回收：
-
-```bash
-storage_tool="/tmp/tailcompile_v68_storage_$(date +%Y%m%d_%H%M%S).py"
-curl --fail --location \
-  https://raw.githubusercontent.com/sj-c-bug/TailCompile/main/experiments/vtr/tailcompile_v68/storage.py \
-  --output "$storage_tool"
-```
+报告、plan、receipt/journal 均在 workspace 内留档。若配额耗尽导致 `git pull` 或写审计失败，先停止继续产生输出，确认可释放空间或申请配额；不要无日志强删文件，也不要自动下载脚本或写清单到 workspace 之外。确实需要外部应急目录时另行确认。
 
 也可以先使用仓库原有的旧版清理工具释放空间（它不删除 `.net`，不动 v6.8）：
 
 ```bash
-bootstrap_plan="/tmp/old_vpr_cleanup_$(date +%Y%m%d_%H%M%S).json"
+storage_dir="$TAILCOMPILE_REPO/logs/storage"
+mkdir -p "$storage_dir"
+bootstrap_plan="$storage_dir/old_vpr_cleanup_$(date +%Y%m%d_%H%M%S).json"
 python3 experiments/vtr/storage_cleanup.py plan \
   --repo "$TAILCOMPILE_REPO" \
   --scratch "${TAILCOMPILE_SCRATCH:-$TAILCOMPILE_REPO/vtr_work}" \
