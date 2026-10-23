@@ -13,6 +13,25 @@ from model import SCHEMA, to_device
 from fast_model import FastHierarchicalInitializer
 
 
+# Exact LF source hashes from the released 5d3f21fa implementation. These are
+# accepted only for this validation-only fix; input/options/checkpoint hashes
+# and the generated artifact hashes must still match exactly.
+PRE_FIXED_XY_FIX = {
+    'fast_model.py': 'b6f4db9fa0b531df91d8ba3d00f9cf94ba704b5ee0fbdaaf7a0a7b5a26c272ee',
+    'generate.py': '12f542a598471cf78520e5b729a44f3788510b5f820a517c1e312cef92c7002f',
+}
+
+
+def validation_fix_compatible(saved, expected):
+    implementation=saved.get('implementation',{})
+    if any(implementation.get(name)!=digest for name,digest in PRE_FIXED_XY_FIX.items()):
+        return False
+    upgraded=dict(saved,implementation=dict(implementation))
+    for name in PRE_FIXED_XY_FIX:
+        upgraded['implementation'][name]=expected.get('implementation',{}).get(name)
+    return upgraded==expected
+
+
 def candidate_options(index):
     return dict(seed=690000+index, score_noise_std=.15 if index else 0.,
                 coordinate_noise_std=.025 if index else 0.)
@@ -32,7 +51,7 @@ def validate_generation(folder, expected):
     if not (folder/'generation.json').exists():
         return None
     saved=read(folder/'generation.json')
-    if saved['signature'] != expected:
+    if saved['signature'] != expected and not validation_fix_compatible(saved['signature'],expected):
         raise ValueError(f'Generation identity changed: {folder}; use a new output directory')
     for key in ('ap_init','fplace','target'):
         if sha(saved[key]) != saved[key+'_sha256']:
@@ -129,4 +148,9 @@ def generate(context, checkpoint, folder, options, candidate=0, reuse=True):
 
 
 def worker(task):
-    return generate(*task)
+    try:
+        return generate(*task)
+    except Exception as error:
+        context=task[0]
+        raise RuntimeError(f'Candidate generation failed: {context["design"]}/w{context["width"]}'
+                           f'/c{task[4]}: {error}') from error

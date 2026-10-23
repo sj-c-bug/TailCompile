@@ -15,7 +15,9 @@ if [[ "$phase" != status ]]; then
   flock -n 9 || { echo "Another v69 task owns $out/.lock"; exit 1; }
 fi
 echo "TailCompile v6.9 phase=$phase host=$(hostname) out=$out"
-if [[ "$phase" == finetune ]]; then
+if [[ "$phase" == repair-fixed-xy ]]; then
+  python3 -u experiments/vtr/tailcompile_v69/repair_fixed_xy.py --out "$out"
+elif [[ "$phase" == finetune ]]; then
   python3 -u experiments/vtr/tailcompile_v69/train_runtime.py \
     --source "$source_out" --out "$out" \
     --device "${TAILCOMPILE_V69_TRAIN_DEVICE:-cuda}" \

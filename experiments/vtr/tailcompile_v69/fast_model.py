@@ -77,8 +77,13 @@ def _validate(data, device):
         xy = data['fixed_xy']
         if xy.device != device or xy.shape != (n, 2) or not torch.isfinite(xy).all():
             raise ValueError('fixed_xy must be finite Nx2 on the model device')
-        if ((xy < 0) | (xy > 1)).any():
-            raise ValueError('fixed_xy must use normalized global coordinates')
+        # The deployment graph uses [-1, -1] placeholders for movable nodes:
+        # these positions are predicted below, not supplied fixed locations.
+        # Still validate shape/device/finiteness for the entire tensor, but
+        # require normalized coordinates only where positions must be kept.
+        fixed_xy = xy[~movable]
+        if ((fixed_xy < 0) | (fixed_xy > 1)).any():
+            raise ValueError('fixed_xy for nonmovable molecules must use normalized global coordinates')
     elif (~movable).any():
         raise ValueError('fixed_xy is required to preserve nonmovable molecules')
     assignment[movable] = -1

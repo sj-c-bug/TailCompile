@@ -115,6 +115,49 @@ class FastInitializerTest(unittest.TestCase):
         self.assertEqual(cached['phase_seconds']['encoding_logic'], 0.)
         self.assertEqual(cached['phase_seconds']['encoding_device'], 0.)
 
+    def test_deployment_movable_coordinate_sentinels_are_ignored_without_mutation(self):
+        for fixed_count in (0, 2):
+            with self.subTest(fixed_count=fixed_count):
+                data = graph(2, 2)
+                # v68 data.ap_graph stores no coordinates for movable nodes.
+                data['fixed_xy'] = torch.full((12, 2), -1.)
+                data['fixed_region'] = torch.full((12,), -1)
+                if fixed_count:
+                    data['movable'][:2] = False
+                    data['fixed_xy'][:2] = torch.tensor([[.7, .2], [.1, .3]])
+                    data['fixed_region'][0] = 1
+                original = {name: value.clone() for name, value in data.items()
+                            if torch.is_tensor(value)}
+                result = self.model().predict(data, score_noise_std=.2,
+                                              coordinate_noise_std=.3, seed=9)
+                for name, value in original.items():
+                    self.assertTrue(torch.equal(data[name], value), name)
+                movable = data['movable']
+                self.assertTrue(torch.all(result['assignment'][movable] >= 0))
+                self.assertTrue(torch.all((result['xy'][movable] >= 0) &
+                                         (result['xy'][movable] <= 1)))
+                self.assertTrue(torch.equal(result['xy'][~movable],
+                                            original['fixed_xy'][~movable]))
+
+    def test_fixed_coordinate_validation_keeps_range_structure_and_finite_guards(self):
+        model = self.model()
+        for value in (-1., -.01, 1.01):
+            data = graph(2, 2)
+            data['fixed_xy'] = torch.full((12, 2), -1.)
+            data['movable'][0] = False
+            data['fixed_xy'][0] = torch.tensor([value, .2])
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, 'nonmovable.*normalized'):
+                    model.predict(data)
+        for bad_xy in (torch.full((12, 2), float('nan')),
+                       torch.full((12, 2), float('inf')),
+                       torch.zeros((11, 2)),
+                       torch.empty((12, 2), device='meta')):
+            data = graph(2, 2)
+            data['fixed_xy'] = bad_xy
+            with self.assertRaisesRegex(ValueError, 'finite Nx2 on the model device'):
+                model.predict(data)
+
     def test_direct_mode_matches_dense_argmax(self):
         data, model = graph(), self.model()
         dense = model(data)

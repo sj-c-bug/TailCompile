@@ -92,6 +92,16 @@ v69_start() {
 
 ## 4. 进度、断点和失败处理
 
+如果旧版在 feedback 生成候选时报告 `fixed_xy must use normalized global coordinates`，原因是可移动节点的 `(-1,-1)` 占位值被误当成真实固定坐标检查。更新代码后，在原 CPU 实例、原 `TAILCOMPILE_V69_OUT` 下执行一次：
+
+```bash
+git pull --ff-only
+bash experiments/vtr/tailcompile_v69/run_pipeline.sh repair-fixed-xy
+# 然后按原方式后台启动 feedback
+```
+
+该修复只接受已发布旧版的两个已知代码指纹，备份 protocol 后更新校验。已成功生成的候选保留原生成记录并继续检查文件哈希；失败或尚未完成的候选重新生成。若已经开始 VPR/计时或存在其他代码变化，会拒绝混合结果。无需清空目录、修改输入图、重新训练或重编译 VTR。迁移记录位于 `fixed_xy_repair.json`。
+
 ```bash
 bash experiments/vtr/tailcompile_v69/run_pipeline.sh status
 ```

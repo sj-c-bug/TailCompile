@@ -30,7 +30,7 @@ class GenerationTest(unittest.TestCase):
     def inputs(self, *, overflow=False, family='unseen'):
         data = graph(1, 1) if overflow else graph(2, 2)
         data['movable'][0] = False
-        data['fixed_xy'] = torch.zeros((len(data['cluster_x']), 2))
+        data['fixed_xy'] = torch.full((len(data['cluster_x']), 2), -1.)
         data['fixed_xy'][0] = torch.tensor([.125, .25])
         data['fixed_region'] = torch.full((len(data['cluster_x']),), -1)
         data['fixed_region'][0] = 0
@@ -102,6 +102,17 @@ class GenerationTest(unittest.TestCase):
             self.assertTrue(0 <= x < 24)
             self.assertTrue(0 <= y < 20)
             self.assertEqual((layer, subtile), (0, 0))
+
+    def test_real_deployment_sentinels_generate_valid_prior_and_preserve_graph(self):
+        context, checkpoint, data = self.inputs()
+        before = Path(context['graph']).read_bytes()
+        self.assertTrue(torch.equal(data['fixed_xy'][1:], torch.full((11, 2), -1.)))
+        result = self.generate(context, checkpoint, candidate=1)
+        target = read(result['target'])
+        self.assertEqual(target['teacher_xy'][0], data['fixed_xy'][0].tolist())
+        for xy in target['teacher_xy'][1:]:
+            self.assertTrue(all(0 <= coordinate <= 1 for coordinate in xy))
+        self.assertEqual(Path(context['graph']).read_bytes(), before)
 
     def test_overflow_is_saved_instead_of_disguised_as_legal_capacity(self):
         context, checkpoint, _ = self.inputs(overflow=True)
