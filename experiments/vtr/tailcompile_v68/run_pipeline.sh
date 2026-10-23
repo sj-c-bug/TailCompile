@@ -9,7 +9,7 @@ export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 stage=init
 trap 'code=$?; echo "ERROR v68 phase=$phase stage=$stage line=$LINENO code=$code"; exit "$code"' ERR
-if [[ "$phase" != status ]]; then
+if [[ "$phase" != status && "$phase" != parallel-status ]]; then
   exec 9>"$out/.lock"
   flock -n 9 || { echo "Another v6.8 stage is active in $out"; exit 1; }
 fi
@@ -50,10 +50,26 @@ gpu() {
     --hidden "${TAILCOMPILE_V68_HIDDEN:-64}" --chunk-size "${TAILCOMPILE_V68_CHUNK_SIZE:-512}" \
     --graph-cache "${TAILCOMPILE_V68_GRAPH_CACHE:-2}" "${extra[@]}"
 }
+parallel_timing() {
+  stage="$1"
+  extra=()
+  [[ "${TAILCOMPILE_V68_RETRY_TIMEOUTS:-0}" == 1 ]] && extra+=(--retry-timeouts)
+  [[ "${TAILCOMPILE_V68_RETRY_FAILED:-0}" == 1 ]] && extra+=(--retry-failed)
+  [[ "${TAILCOMPILE_V68_CONFIRM_REMOTE_STOPPED:-0}" == 1 ]] && extra+=(--confirm-remote-stopped)
+  [[ -n "${TAILCOMPILE_V68_TIMING_CPUS:-}" ]] && extra+=(--cpu-list "$TAILCOMPILE_V68_TIMING_CPUS")
+  python3 -u experiments/vtr/tailcompile_v68/parallel_timing.py "$1" --out "$out" \
+    --run-name "${TAILCOMPILE_V68_PARALLEL_TIMING_RUN:-paired_001}" \
+    --timing-jobs "${TAILCOMPILE_V68_TIMING_JOBS:-16}" \
+    --timeout "${TAILCOMPILE_V68_TIMEOUT:-7200}" \
+    --heartbeat "${TAILCOMPILE_V68_HEARTBEAT:-60}" "${extra[@]}"
+}
 echo "TailCompile v6.8 phase=$phase host=$(hostname) out=$out"
 case "$phase" in
   inventory|prepare|feedback|evaluate|timing|report|status|recover) cpu "$phase" ;;
+  parallel-timing) parallel_timing run ;;
+  parallel-status) parallel_timing status ;;
+  parallel-report) parallel_timing report ;;
   train|finetune) gpu "$phase" ;;
-  *) echo "CPU: inventory prepare feedback evaluate timing report status recover; GPU: train finetune"; exit 2 ;;
+  *) echo "CPU: inventory prepare feedback evaluate timing parallel-timing parallel-status parallel-report report status recover; GPU: train finetune"; exit 2 ;;
 esac
 echo "v6.8 phase=$phase finished (inspect status/report for scientific outcome)"

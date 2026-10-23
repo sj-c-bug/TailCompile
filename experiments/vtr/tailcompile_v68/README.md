@@ -122,7 +122,8 @@ bash experiments/vtr/tailcompile_v68/install_vtr.sh
 | 真反馈 | CPU | `feedback` | 多进程生成训练候选，随后并行 warm-start VPR 标签 |
 | 微调 | GPU | `finetune` | 将真实收益回灌同一生成器 |
 | 最终验证 | CPU | `evaluate` | 未见设计族 Default/GNN 多 seed 宽度扫描与汇总 |
-| 可选计时 | CPU | `timing` | 最低共同成功条件的小规模串行配对计时 |
+| 推荐计时 | CPU | `parallel-timing` | 最低共同成功条件的受控并行配对计时 |
+| 隔离复核 | CPU | `timing` | 保留原有小规模串行配对计时，独立报告 |
 
 每次只运行当前阶段，完成后切换实例：
 
@@ -170,7 +171,7 @@ export TAILCOMPILE_V68_JOBS=32
 需要按内存单独限制 RRG 时可以显式 `export TAILCOMPILE_V68_RR_JOBS=4`，不会降低其他阶段的并行度。RRG 只运行 pack 导出，不运行布局/布线；随后流式解析，不在 Python 内存中保留百万 rr_edges。设备相同宽度的 raw RRG 共用并压缩。
 16/32 表示任务上限，并非内存保证：若仍是之前的 80 GiB 限额，16 个各占约 6.5 GiB 的任务就可能超限，32 更不能盲设。根据实际 CPU quota 和任务峰值内存选择，脚本不会暗中把请求的 16 降为 1。日志 `parallelism` 会显示实际预算，任务少时实际并发自然低于上限。
 
-2026-10-21 的调度更新只接受精确审计过的旧 v6.8 代码哈希兼容，冻结的 seed、宽度、VPR、数据/目标参数均不改变，可继续使用原输出目录、输入、构图缓存和成功 VPR 结果，不要求清空重跑。已运行进程不会动态改变并行度；请勿同时启动第二份 pipeline。可选隔离计时 `timing` 仍遵守原来的串行测量协议，不使用这里的吞吐并发来冒充单任务加速。
+2026-10-21 的调度更新只接受精确审计过的旧 v6.8 代码哈希兼容，冻结的 seed、宽度、VPR、数据/目标参数均不改变，可继续使用原输出目录、输入、构图缓存和成功 VPR 结果，不要求清空重跑。已运行进程不会动态改变并行度；请勿同时启动第二份 pipeline。可选隔离计时 `timing` 仍遵守原来的串行测量协议，不使用这里的吞吐并发来冒充单任务加速。受控并行计时使用独立的 `parallel-timing`，详见下节，不能只修改 `JOBS` 来切换串行计时。
 
 ### 2026-10-22：候选生成也按单个候选多进程并行
 
@@ -179,7 +180,7 @@ export TAILCOMPILE_V68_JOBS=32
 - 每 worker 的 PyTorch/OMP/MKL/OpenBLAS 线程数为 1，复用自己的模型和最近图编码缓存。不能把同一个有可变缓存的 Generator 对象直接在线程间共享。
 - `infer.py`、`model.py`、checkpoint、候选 seed/noise、输出目录与冻结反馈条件均不变。已有有效 `generation.json` 会核对签名与输出哈希后复用，不重生成、不覆盖；只有尚未提交完整 manifest 的候选重新做该项。不需要归档模型或重跑 train/prepare。
 - 父进程只派发缺失候选，生成进度和并发配置独立写入 `feedback/generation_progress.json`（评测对应 evaluation 目录）。状态命令也显示生成进度；候选齐全后才进入原有 VPR 阶段。
-- 不改变容量解码算法、候选数量或单候选质量。因此单个 BGM 解码仍可能很长，改善的是整批吞吐；内存带宽、进程大图副本与尾部慢任务会限制加速比。不要把并行墙钟时间混进正式串行 runtime 加速结论。`timing` 继续原串行生成/测量方式。
+- 不改变容量解码算法、候选数量或单候选质量。因此单个 BGM 解码仍可能很长，改善的是整批吞吐；内存带宽、进程大图副本与尾部慢任务会限制加速比。不要把并行墙钟时间混进正式串行 runtime 加速结论。`timing` 保留原串行测量；`parallel-timing` 单独报告受控并发下的耗时。
 - CPU 使用 spawn 进程，避免 fork 已初始化的 PyTorch；多进程不用于单张 GPU。每个 worker 的大图副本都要计入 RAM，32 并发并非内存可行性保证。
 
 在原 CPU 实例先停止旧 feedback，等 cohort `.lock` 释放后更新，再原目录续跑。旧串行反馈若仍在匹配/解码且没有子 VPR，停止精确匹配的 `experiment.py feedback` 主 Python 即可；不能用泛化 `pkill python/vpr`，也不要杀交互终端的整个进程组。新并行生成器收到 SIGTERM/KeyboardInterrupt 时清理自己启动的 worker；SIGKILL/机器故障无法保证这一点，恢复前仍需确认旧 worker 已停止。
@@ -239,6 +240,51 @@ bash experiments/vtr/tailcompile_v68/run_pipeline.sh prepare # 或原来的 feed
 运行 `timing` 将与并行吞吐扫描分开。报告分别列 VPR-only、已缓存图的推理/解码/生成成本，以及包含新设计结构提取/逻辑特征的首次使用**分项成本估计**；可复用 RRG 预处理单列，不计入这几个加速比。
 这个估计在已有 Python 进程内组合测量值，不含未测的 Python 新进程启动，结构/逻辑准备部分来自准备阶段，并非一次隔离进程的完整 stopwatch。也不等于 RTL-to-bitstream（双方相同综合成本未计）。不得把缓存图的 warm speedup 当成新设计端到端 speedup。
 计时批次固定 host、CPU affinity 和 CPU quota；换实例或改配额后，设置新的 `TAILCOMPILE_V68_TIMING_RUN=serial_002`，只重做该计时批次，不重跑准备/训练/宽度扫描，也不与旧机器记录混合。
+
+### 2026-10-24：受控并行计时（推荐）
+
+`parallel-timing` 复用已冻结的模型、预布局和评测结果，不重跑训练或宽度扫描。它与串行计时使用相同的最低共同成功宽度、前三个最终评测 seeds；最多 4 个设计 × 3 seeds = 12 个配对条件，因此把上限设成 16/32 不会凭空增加任务。
+
+- 每个配对占用一个物理核，Default/GNN 在同一个核先后运行；不同配对交替 AB/BA 顺序。避开同一物理核的超线程兄弟核，每个 VPR 内部仍为 1 worker。
+- 波次内先同步运行每对的第一条路线，全部结束后再运行第二条路线。记录实际并发、核绑定、主机、CPU quota、内存限制与执行顺序；较慢任务造成的波次尾部降载会保留在记录中，不能宣称完全没有干扰。
+- 同一半波的 VPR 全部结束后才清理派生输出，避免边测量兄弟任务、边进行大量回收 I/O；每半波之间仍自动回收，不把整轮原始文件堆到最后。
+- 默认请求 16 个配对并发，实际受配对数、可用物理核和 CPU quota 限制。此处会明确记录受控计时的有效并发，不等同于前面 `JOBS` 的吞吐调度。
+- 结果位于 `timing_parallel/<run>/parallel_report.json`，不覆盖 `timing_report.json`，不把旧串行结果混入并行加速比。报告口径是“受控共享负载下的 runtime”，有明显收益后可用少量串行条件复核。
+- 成本仍分别列出 VPR-only、缓存图推理/解码/预布局生成、新设计首次使用分项估计；可复用 RRG 处理成本单列。并行 wall time 不能被当作单次推理成本摊薄。
+
+先停止旧串行调度并确认它启动的 VPR 已结束，再启动新批次。仅停止 nohup shell 或看到 `.lock` 释放并不足以证明其子进程已退出；不要使用泛化 `pkill python/vpr`。已有串行结果原样保留，但不能作为受控并行波次的缓存结果。
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+# 如需 source env.sh，确认其中只有环境变量，没有自动启动旧实验的命令。
+export TAILCOMPILE_V68_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v68/runs/hier_init_001"
+export TAILCOMPILE_V68_TIMING_JOBS=16
+export TAILCOMPILE_V68_PARALLEL_TIMING_RUN=paired_001
+# 可选：手工指定此实例允许使用的 CPU 编号；不要照抄其他机器的核号。
+# export TAILCOMPILE_V68_TIMING_CPUS=0,2,4,6
+
+# 独立停止工具不获取 pipeline 锁，因此可在旧串行计时仍运行时执行。
+# 先只读预览，核对显示的旧 timing 路径与 PID，再执行精确停止。
+python3 experiments/vtr/tailcompile_v68/stop_timing.py \
+  --out "$TAILCOMPILE_V68_OUT" --mode serial \
+  --serial-name "${TAILCOMPILE_V68_TIMING_RUN:-serial_001}"
+python3 experiments/vtr/tailcompile_v68/stop_timing.py \
+  --out "$TAILCOMPILE_V68_OUT" --mode serial \
+  --serial-name "${TAILCOMPILE_V68_TIMING_RUN:-serial_001}" --apply
+
+mkdir -p "$TAILCOMPILE_REPO/logs"
+log="$TAILCOMPILE_REPO/logs/v68_parallel_timing_$(date +%Y%m%d_%H%M%S).log"
+nohup bash experiments/vtr/tailcompile_v68/run_pipeline.sh parallel-timing \
+  >"$log" 2>&1 </dev/null &
+echo "PID=$! LOG=$log"
+
+bash experiments/vtr/tailcompile_v68/run_pipeline.sh parallel-status
+```
+
+停止工具核对 UID、进程启动标识、工作目录、脚本及输出目录，先停止调度，再停止该计时目录中归属明确的 VPR 进程组；不删除结果，审计写入 `timing_stop/`。若需停止新并行批次，单独使用 `--mode parallel --parallel-name paired_001`，同样先预览、再加 `--apply`。不能用串行停止命令代替检查仍存活的并行 worker。
+
+同批次原命令可断点续跑：完整波次复用；被中断、未完整提交的波次必须整体隔离后重做，不能把不同并发背景的两半拼接。恢复前会检查旧 worker：同主机活进程或远端状态未知时拒绝操作。只有人工确认旧远端实例/任务已经停止后，才可设置 `TAILCOMPILE_V68_CONFIRM_REMOTE_STOPPED=1`。改变主机、CPU quota、核列表或计时并发时使用新批次名，例如 `paired_002`，不要覆盖旧协议。日志和 `parallel-status` 可查看波次/任务进度；最终 `parallel_report.json` 的 `complete=true` 才表示该计时批次完成，是否加速及 CPD/线长是否退化需另看报告。
 
 ## 同步轻量证据
 
