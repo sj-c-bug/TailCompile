@@ -11,7 +11,13 @@ import re
 from bridge import V68, read, sha
 
 SAFE_NAME = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_.-]*\Z')
-HELPERS = {'hard_block_include.v', 'hard_block_include.sv'}
+HELPERS = {
+    'hard_block_include.v': 'shared_hard_block_include',
+    'hard_block_include.sv': 'shared_hard_block_include',
+    # Pinned Koios files contain only configuration macros, not RTL modules.
+    'hard_mem_include.v': 'architecture_memory_configuration_include',
+    'complex_dsp_include.v': 'architecture_dsp_configuration_include',
+}
 
 
 def family_for(design, known):
@@ -61,7 +67,7 @@ def discover(vtr, source=None, checkpoint_metadata=None, designs=None, scope='al
         if not path.is_file() or path.suffix.lower() not in {'.v', '.sv'}:
             continue
         if path.name in HELPERS:
-            excluded.append(dict(source=path.relative_to(bench).as_posix(), reason='shared_hard_block_include', sha256=sha(path)))
+            excluded.append(dict(source=path.relative_to(bench).as_posix(), reason=HELPERS[path.name], sha256=sha(path)))
             continue
         name = path.stem
         if not SAFE_NAME.fullmatch(name):

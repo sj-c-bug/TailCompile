@@ -5,7 +5,7 @@
 ## 范围与解码
 
 - 默认 `all`：现有 v6.8 benchmark 清单与服务器固定 VTR checkout 中全部顶层 Koios RTL 的并集。排除共享 include，记录缺失、失败及排除原因，不把参数变体算成独立设计族。`inventory_preview.json` 给出实际数量，不预设有多少个可运行设计。
-- 本地固定版本清单检查发现32个 Koios 设计，合并旧清单后46个设计、33个按当前规则归类的设计族；源文件均存在，但这不表示它们已全部通过新流程。最终以服务器清单、资格与执行报告为准。
+- 本地固定版本清单检查发现30个 Koios 条目，合并旧清单后44个设计、31个按当前规则归类的分组；排除了两个仅含宏定义的配置 include。`test.v` 属于 DSP 回归测试，保留遍历，但不能作为独立应用设计证据。这些数量不表示已全部通过新流程，最终以服务器资格与执行报告为准。
 - 每个设计标注原 split、family 和 checkpoint 的训练/验证暴露关系。这是探索性覆盖实验，已见过的设计不用于声称独立泛化；事后发现的有益设计需另行确认。
 - 继续使用固定 tile 的分层 GNN。默认 `balanced` 解码在原快速坐标输出上增加有限轮次的离散需求修正：按真实分配后的各类资源溢出，把 molecule 移向兼容且溢出更少的区域，再用冻结坐标 head 输出坐标。保留固定节点、原子性及资源类型兼容。
 - 修正限制轮数、候选区域数和移动预算，报告前后溢出与占用分布。它改善的是**区域容量代理**，不能保证最终打包合法、时序或布线收益；最终由 VPR 判定。无法完全消除的溢出保留记录，不无限重试。
@@ -73,6 +73,27 @@ bash experiments/vtr/tailcompile_v610/run_pipeline.sh status
 | `timing/preloaded_001/runtime_report.json` | 受控并行计时及硬件协议 |
 
 `complete` 表示证据齐全，`passed` 表示达到收益门槛，两者不能混淆。准备阶段出现不支持/环境/超时会保留已完成同伴并报告，修复后续跑；需要排除无法运行设计时另建明确子集，不静默改变冻结清单。
+
+## 2026-10-25：旧清单误收两个配置 include 的修复
+
+初版自动发现误收 `koios/hard_mem_include.v` 和 `koios/complex_dsp_include.v`。它们只定义架构宏，没有独立顶层模块，现已按源文件角色排除，保留源哈希与排除原因。已运行的 `koios_sweep_001` 无需删除重建：
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+
+# 先预览；确认旧 pipeline 已退出。
+python3 experiments/vtr/repair_tailcompile_v610_inventory.py \
+  --out "$TAILCOMPILE_V610_OUT"
+
+# 应用同一修复，保存完整旧/新记录及原失败报告。
+python3 experiments/vtr/repair_tailcompile_v610_inventory.py \
+  --out "$TAILCOMPILE_V610_OUT" --apply
+```
+
+迁移脚本持有同一 cohort 锁，只允许在准备尚未完成、没有新图或正式评测时运行；核对原始 inventory 源码哈希、所有其他冻结代码、模型哈希，以及每个保留设计的完整记录。仅更新 inventory.py 的代码哈希和对应辅助文件条目，不改宽度、seeds、超时、权重或 VTR。旧运行目录全部保留；审计和备份在 `_repairs/helper_inventory/repair.json`。两个 JSON 替换之间中断时可以重复同一命令恢复。
+
+其余超时或 VPR 错误需要分别查日志。`RETRY_TIMEOUTS` 保持同一预算重试超时；`RETRY_FAILED` 只重试其他失败。**不要在同一输出目录直接提高 `TAILCOMPILE_V610_TIMEOUT`**：它同时冻结在主协议、校准协议和综合命令中。准备并发可调整，例如改为16，完整成功任务仍复用。仅修复辅助条目不会把其余失败自动算成成功或不可布线。
 
 轻量同步：`.gitignore` 默认仅放行审计文件、报告、成本和指标，不提交 RRG、网表、图张量、模型或逐任务巨大输出。
 

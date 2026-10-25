@@ -26,6 +26,8 @@ class InventoryTest(unittest.TestCase):
                          'koios/tpu_like.large.ws.v','koios/clstm_like.small.v',
                          'koios/dla_like.large.v','koios/hard_block_include.v'):
             (self.bench/relative).write_text('module test; endmodule\n')
+        (self.koios/'hard_mem_include.v').write_text('`define hard_mem\n')
+        (self.koios/'complex_dsp_include.v').write_text('`define complex_dsp\n')
         self.patch = patch.object(inventory,'V68',self.base)
         self.patch.start()
         self.addCleanup(self.patch.stop)
@@ -41,7 +43,29 @@ class InventoryTest(unittest.TestCase):
         self.assertEqual(rows['dla_like.large']['family'],rows['clstm_like.small']['family'])
         self.assertEqual(rows['spree']['checkpoint_exposure'],'previously_observed_holdout_family')
         self.assertTrue(all(r['source_sha256'] and r['split']=='sweep' for r in rows.values()))
-        self.assertEqual(value['excluded'][0]['reason'],'shared_hard_block_include')
+        helpers = {row['source']:row for row in value['excluded']}
+        self.assertEqual(set(helpers), {'koios/hard_block_include.v',
+            'koios/hard_mem_include.v','koios/complex_dsp_include.v'})
+        self.assertEqual(helpers['koios/hard_block_include.v']['reason'],'shared_hard_block_include')
+        self.assertEqual(helpers['koios/hard_mem_include.v']['reason'],'architecture_memory_configuration_include')
+        self.assertEqual(helpers['koios/complex_dsp_include.v']['reason'],'architecture_dsp_configuration_include')
+        for source, row in helpers.items():
+            self.assertEqual(row['sha256'],inventory.sha(self.bench/source))
+            self.assertNotIn(Path(source).stem,rows)
+
+    def test_configuration_includes_cannot_be_requested_as_designs(self):
+        for name in ('hard_mem_include','complex_dsp_include','hard_block_include'):
+            with self.assertRaisesRegex(ValueError,'Unknown requested designs'):
+                inventory.discover(self.vtr,designs=[name])
+
+    def test_test_named_real_module_is_not_filtered_by_name(self):
+        # Koios test.v is executable regression RTL, unlike macro-only includes.
+        # Inventory does not infer standalone RTL eligibility from a name.
+        (self.koios/'test.v').write_text('module top(input a, output b); assign b=a; endmodule\n')
+        value=inventory.discover(self.vtr)
+        self.assertEqual(value['design_count'],7)
+        self.assertEqual(value['koios_design_count'],5)
+        self.assertIn('test',{row['design'] for row in value['designs']})
 
     def test_scopes_and_explicit_subset_are_auditable(self):
         self.assertEqual(inventory.discover(self.vtr,scope='koios')['design_count'],4)
