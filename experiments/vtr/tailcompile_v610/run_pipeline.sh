@@ -18,6 +18,7 @@ if [[ "$phase" != status ]]; then
   flock -n 9 || { echo "Another task owns $out/.lock"; exit 1; }
 fi
 extra=()
+[[ -n "${TAILCOMPILE_V610_RECOVERY_SOURCE:-}" ]] && extra+=(--recovery-source "$TAILCOMPILE_V610_RECOVERY_SOURCE")
 [[ -n "${TAILCOMPILE_V610_TIMING_CPUS:-}" ]] && extra+=(--cpu-list "$TAILCOMPILE_V610_TIMING_CPUS")
 if [[ -n "${TAILCOMPILE_V610_DESIGNS:-}" ]]; then
   read -r -a designs <<< "$TAILCOMPILE_V610_DESIGNS"
@@ -38,6 +39,8 @@ python3 -u experiments/vtr/tailcompile_v610/run.py "$phase" \
   --run-name "${TAILCOMPILE_V610_TIMING_RUN:-preloaded_001}" \
   --timeout "${TAILCOMPILE_V610_TIMEOUT:-7200}" \
   --setup-timeout "${TAILCOMPILE_V610_SETUP_TIMEOUT:-1800}" \
+  --synthesis-timeout "${TAILCOMPILE_V610_SYNTHESIS_TIMEOUT:-21600}" \
+  --calibration-timeout "${TAILCOMPILE_V610_CALIBRATION_TIMEOUT:-14400}" \
   --heartbeat "${TAILCOMPILE_V610_HEARTBEAT:-60}" \
   --tile-size "${TAILCOMPILE_V610_TILE_SIZE:-4}" \
   --width-start "${TAILCOMPILE_V610_WIDTH_START:-48}" \

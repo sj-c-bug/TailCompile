@@ -74,26 +74,41 @@ bash experiments/vtr/tailcompile_v610/run_pipeline.sh status
 
 `complete` 表示证据齐全，`passed` 表示达到收益门槛，两者不能混淆。准备阶段出现不支持/环境/超时会保留已完成同伴并报告，修复后续跑；需要排除无法运行设计时另建明确子集，不静默改变冻结清单。
 
-## 2026-10-25：旧清单误收两个配置 include 的修复
+## 2026-10-25：容量资格检查与准备续跑
 
-初版自动发现误收 `koios/hard_mem_include.v` 和 `koios/complex_dsp_include.v`。它们只定义架构宏，没有独立顶层模块，现已按源文件角色排除，保留源哈希与排除原因。已运行的 `koios_sweep_001` 无需删除重建：
+初版清单已排除仅含宏定义的 `hard_mem_include.v`、`complex_dsp_include.v`。两项 BWave 随后暴露了另一问题：structure-only 导出在 APPack 前结束，导出的器件尺寸只是估计；将它立即用 `--device_width` 固定，可能导致实际打包需要133个 DSP、器件只有132个，或初始放置找不到合法位置。这类失败属于器件/放置资格问题，不能算成通道宽度不足的 `unroutable`。
+
+当前修复采用**新准备目录＋旧缓存只读引用**。旧 `koios_sweep_001` 保留，包括已完成的综合、AP结构、Default校准和图缓存；本次不再原地更新旧协议。历史 include 修复工具及其备份仍保留，但更新至本版本后应使用下面的续跑入口。
 
 ```bash
 cd "$TAILCOMPILE_REPO"
 git pull --ff-only
 
-# 先预览；确认旧 pipeline 已退出。
-python3 experiments/vtr/repair_tailcompile_v610_inventory.py \
-  --out "$TAILCOMPILE_V610_OUT"
+export TAILCOMPILE_V610_RECOVERY_SOURCE="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v610/runs/koios_sweep_001"
+export TAILCOMPILE_V610_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v610/runs/koios_sweep_002"
+export TAILCOMPILE_V610_JOBS=32
+export TAILCOMPILE_V610_SYNTHESIS_TIMEOUT=21600
+export TAILCOMPILE_V610_CALIBRATION_TIMEOUT=14400
+export TAILCOMPILE_V610_TIMEOUT=7200
 
-# 应用同一修复，保存完整旧/新记录及原失败报告。
-python3 experiments/vtr/repair_tailcompile_v610_inventory.py \
-  --out "$TAILCOMPILE_V610_OUT" --apply
+mkdir -p "$TAILCOMPILE_REPO/logs"
+log="$TAILCOMPILE_REPO/logs/v610_recovery_$(date +%Y%m%d_%H%M%S).log"
+nohup bash experiments/vtr/tailcompile_v610/run_pipeline.sh all \
+  >"$log" 2>&1 </dev/null &
+echo "PID=$!"
+echo "LOG=$log"
 ```
 
-迁移脚本持有同一 cohort 锁，只允许在准备尚未完成、没有新图或正式评测时运行；核对原始 inventory 源码哈希、所有其他冻结代码、模型哈希，以及每个保留设计的完整记录。仅更新 inventory.py 的代码哈希和对应辅助文件条目，不改宽度、seeds、超时、权重或 VTR。旧运行目录全部保留；审计和备份在 `_repairs/helper_inventory/repair.json`。两个 JSON 替换之间中断时可以重复同一命令恢复。
+新增规则：
 
-其余超时或 VPR 错误需要分别查日志。`RETRY_TIMEOUTS` 保持同一预算重试超时；`RETRY_FAILED` 只重试其他失败。**不要在同一输出目录直接提高 `TAILCOMPILE_V610_TIMEOUT`**：它同时冻结在主协议、校准协议和综合命令中。准备并发可调整，例如改为16，完整成功任务仍复用。仅修复辅助条目不会把其余失败自动算成成功或不可布线。
+- 已完成的完整图网格、BLIF/AP结构和 Default 边界通过源文件、后端、checkpoint、输入内容和命令条件审核后复用；部分校准只导入同一器件、BLIF、宽度、seed下的成功或明确不可布线结果。原来的 timeout 仍是未知，新目录重新执行，不篡改旧记录。
+- 对没有完整校准证据的新设计，先用两枚 Default 校准 seeds 执行 `--analytical_place`，经过原生 GP、APPack 和详细布局，跳过 route/analysis。结构导出本身不能充当容量证书。
+- 仅遇到明确的 pack 资源不足或 initial placement 无合法位置消息时，尝试初始宽度加 `[0,4,8,16,32]` 的预设阶梯；普通不可布线、超时、OOM、quota及未知错误不触发扩容。第一个同时通过资格与 Default 校准的尺寸固定给 Default/GNN。耗尽阶梯仍失败会报告，绝不无限扩容。
+- 每次改变器件尺寸，重新导出 AP结构，并生成该器件的 RRG/图/IR；BLIF内容相同，不重新综合。不会把旧尺寸的标签、图或观测值混进新尺寸。
+- 综合准备允许6小时；布局资格、Default校准、结构/RRG准备允许4小时。**正式五seed扫描和计时仍为相同的7200秒预算**。这些准备成本不进入推理起算的 runtime，策略及实际耗时完整留存。
+- `recovery_manifest.json` 保存来源、引用文件哈希和导入证据。运行期间源目录必须保持停止和只读；不要清理其被引用的网表、结构或图，也不要同时重跑旧任务。新目录仍支持原有断点续跑与已结束派生产物回收。
+
+本修复不会修改 VTR 或权重。扩容改变的是准备时选定的物理器件，因此只在同一新器件上比较 Default/GNN，不能直接与旧尺寸的指标混算。是否真的改善真实布局布线，仍由后续扫描与计时给出。
 
 轻量同步：`.gitignore` 默认仅放行审计文件、报告、成本和指标，不提交 RRG、网表、图张量、模型或逐任务巨大输出。
 

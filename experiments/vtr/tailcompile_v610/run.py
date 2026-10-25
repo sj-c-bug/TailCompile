@@ -42,7 +42,10 @@ def options(a):
 
 
 def prepare(a):
-    from prepare import prepare as prepare_inputs
+    if a.recovery_source:
+        from recovery import prepare as prepare_inputs
+    else:
+        from prepare import prepare as prepare_inputs
     e.identity(a)
     if not a.checkpoint.is_file():
         raise FileNotFoundError(f'Frozen checkpoint not found: {a.checkpoint}')
@@ -61,6 +64,12 @@ def prepare(a):
         budgets=dict(metrics.DEFAULT_BUDGETS), runtime_metric=RUNTIME_SCOPE,
         evaluation_role='Exploratory frozen-weight coverage sweep; seen and unseen families reported separately',
         timing_selection='Default-only reference width and highest frozen scan width; no GNN-success filtering')
+    if a.recovery_source:
+        from recovery_source import fingerprint_source
+        from recovery import policy
+        if a.recovery_source.resolve()==a.out.resolve():
+            raise ValueError('Use a new output directory for preparation recovery')
+        protocol.update(recovery_source=fingerprint_source(a.recovery_source),preparation_policy=policy(a))
     freeze(a.out/'protocol.json', protocol)
     result = prepare_inputs(a)
     contexts = result['contexts']
@@ -87,6 +96,10 @@ def load(a, vpr=False):
     if sha(a.out/'contexts.json') != saved['contexts_sha256'] or sha(a.out/'inventory.json') != saved['inventory_sha256']:
         raise ValueError('Prepared sweep inputs changed')
     contexts = read(a.out/'contexts.json')['contexts']
+    if p.get('recovery_source'):
+        from recovery_source import fingerprint_source
+        if fingerprint_source(p['recovery_source']['source'])!=p['recovery_source']:
+            raise ValueError('Read-only recovery source metadata changed')
     for path,digest in saved['artifact_sha256'].items():
         if sha(path)!=digest:
             raise ValueError(f'Prepared graph/IR changed: {path}')
@@ -467,6 +480,10 @@ def parse_args(argv=None):
     parser.add_argument('--out',type=Path,required=True)
     parser.add_argument('--source',type=Path,default=V68/'runs/hier_init_001')
     parser.add_argument('--checkpoint',type=Path,default=V69/'runs/runtime_001/models/runtime/generator.pt')
+    parser.add_argument('--recovery-source',type=Path)
+    parser.add_argument('--synthesis-timeout',type=float,default=21600)
+    parser.add_argument('--calibration-timeout',type=float,default=14400)
+    parser.add_argument('--device-width-steps',type=int,nargs='+',default=[0,4,8,16,32])
     parser.add_argument('--vtr-root',dest='vtr',type=Path,default=os.environ.get('VTR_ROOT'))
     parser.add_argument('--scope',choices=['all','koios','existing'],default='all')
     parser.add_argument('--designs',nargs='+')
@@ -497,13 +514,17 @@ def parse_args(argv=None):
         parser.error('Calibration seeds must be nonempty and unique')
     if not re.fullmatch(r'[A-Za-z0-9_-]+',a.run_name):
         parser.error('Unsafe timing run name')
-    if not all(math.isfinite(x) for x in (a.timeout,a.setup_timeout,a.heartbeat)):
+    if not all(math.isfinite(x) and x>0 for x in (a.timeout,a.setup_timeout,a.heartbeat,a.synthesis_timeout,a.calibration_timeout)):
         parser.error('Timeouts and heartbeat must be finite')
     if min(a.jobs,a.prepare_jobs,a.rr_jobs,a.generation_jobs,a.timing_jobs,a.timeout,a.setup_timeout,
            a.heartbeat,a.tile_size,a.width_start,a.width_max,a.width_step,a.repair_topk)<=0:
         parser.error('Budgets must be positive')
     if a.width_max<a.width_start or a.half_band<1 or not 0<=a.repair_passes<=8:
         parser.error('Invalid width/repair budget')
+    if (not a.device_width_steps or a.device_width_steps[0]!=0 or
+            sorted(set(a.device_width_steps))!=a.device_width_steps or
+            any(not 0<=n<=128 for n in a.device_width_steps)):
+        parser.error('Device width steps must start at0, be unique/increasing, and within0..128')
     return a
 
 
