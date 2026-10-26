@@ -17,6 +17,8 @@ from prepare import (PreparationFailure, boundary_grid, graph_group_worker,
                      _failure)
 from recovery_inputs import prepare_input, resize_input, is_device_capacity_failure
 from recovery_source import load_recovery
+from preparation_retry import (load_retry_plan, override_for,
+    audit as retry_audit, calibration_destination)
 
 
 def policy(a):
@@ -102,6 +104,8 @@ def calibrate_record(a,record,recovery,root):
         return dict(record,**saved['boundary'])
     observations={}
     budget_args=copy(a);budget_args.timeout=a.calibration_timeout
+    retry=override_for(a,record['design'],'calibration')
+    retried_observations=[]
     def outcome(width,seed):
         key=(width,seed)
         if key not in observations:
@@ -112,7 +116,15 @@ def calibrate_record(a,record,recovery,root):
                     grid=signature['grid'],mapped_blif_sha256=record['mapped_blif_sha256']))
                 emit('reuse_calibration_trial',design=record['design'],width=width,seed=seed,status=row['status'])
             else:
-                row=e.route(budget_args,record,width,seed,folder)
+                folder,extended=calibration_destination(root,width,seed,retry)
+                if extended:
+                    actual_args=copy(budget_args);actual_args.timeout=float(retry['new_timeout'])
+                    row=e.route(actual_args,record,width,seed,folder,
+                        extra={'preparation_retry':retry_audit(retry)})
+                    retried_observations.append(dict(width=width,seed=seed,directory=str(folder),
+                        actual_timeout=actual_args.timeout,status=row['status']))
+                else:
+                    row=e.route(budget_args,record,width,seed,folder)
                 prune_trial(folder,a.out)
             observations[key]=row['status']
             if row['status'] not in {'success','unroutable'}:
@@ -142,6 +154,9 @@ def calibrate_record(a,record,recovery,root):
         widths=boundary_grid(center,a.width_step,a.half_band,maximum=a.width_max if censored else None),
         calibration_observations=[dict(width=w,seed=s,status=status) for (w,s),status in sorted(observations.items())],
         boundary_selection='Default-only reference search; all frozen grid points scanned with five new seeds')
+    if retry:
+        boundary['preparation_retry']=dict(authorization=retry_audit(retry),
+            observations=retried_observations)
     freeze(root/'boundary.json',dict(signature=signature,boundary=boundary))
     return dict(record,**boundary)
 
@@ -196,6 +211,10 @@ def prepare_design(a,record,recovery):
 
 def prepare(a):
     from inventory import discover
+    retry_plan=load_retry_plan(a)
+    if retry_plan:
+        emit('preparation_retry_authorized',overrides=retry_plan['overrides'],
+            note='Base preparation policy and formal scan/timing budgets unchanged')
     inventory=discover(a.vtr,a.source,a.checkpoint_metadata,a.designs,scope=a.scope)
     freeze(a.out/'inventory.json',inventory)
     recovery=load_recovery(a,inventory)

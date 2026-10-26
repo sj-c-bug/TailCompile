@@ -17,6 +17,7 @@ from bridge import e, emit, freeze, read, sha, StoragePressureError, log_storage
 from data import read_ap_snapshot
 from inventory import SAFE_NAME
 from prepare import PreparationFailure, STRUCTURE_SUFFIXES
+from preparation_retry import override_for, audit as retry_audit, suffix as retry_suffix
 
 SOURCE_KEYS = ('design', 'source', 'source_sha256', 'include_sha256')
 STALE_FIELDS = {
@@ -98,14 +99,20 @@ def _canonical_mapping(a, record):
         value = dict(record, mapped_blif=str(blif), mapped_blif_sha256=saved['mapped_blif_sha256'])
         _check_mapped(value)
         return value
+    retry = override_for(a, record['design'], 'synthesis')
     worker = _budget(a, 'synthesis_timeout')
-    flow, folder = root/'mapping', root/'synthesis'
+    if retry:
+        worker.timeout = float(retry['new_timeout'])
+    flow, folder = root/('mapping'+retry_suffix(retry)), root/('synthesis'+retry_suffix(retry))
     command = [sys.executable, Path(a.vtr)/'vtr_flow/scripts/run_vtr_flow.py', source, a.arch,
                '-temp_dir', flow, '-ending_stage', 'abc', '-timeout', str(worker.timeout)]
     if include is not None:
         command += ['-include', include]
-    result = _call(worker, command, folder,
-                   dict(signature, stage='synthesis', budget_seconds=worker.timeout))
+    trial_signature = dict(signature, stage='synthesis', budget_seconds=worker.timeout)
+    if retry:
+        trial_signature['preparation_retry'] = retry_audit(retry)
+        emit('preparation_budget_retry', authorization=retry_audit(retry), directory=str(folder))
+    result = _call(worker, command, folder, trial_signature)
     generated = flow/(record['design']+'.abc.blif')
     if result['returncode'] != 0 or not generated.is_file():
         _fail_result(result, folder, 'synthesis', 'Synthesis did not produce a canonical BLIF')
@@ -114,9 +121,13 @@ def _canonical_mapping(a, record):
     shutil.copyfile(generated, temporary)
     temporary.replace(blif)
     digest = sha(blif)
-    freeze(mapping, dict(schema='tailcompile-v610-recovery-mapping-1', signature=signature,
+    manifest = dict(schema='tailcompile-v610-recovery-mapping-1', signature=signature,
         mapped_blif_sha256=digest, synthesis_budget_seconds=worker.timeout,
-        synthesis_trial_sha256=sha(folder/'trial.json')))
+        synthesis_trial_sha256=sha(folder/'trial.json'))
+    if retry:
+        manifest['preparation_retry'] = retry_audit(retry)
+        manifest['synthesis_trial'] = str(folder/'trial.json')
+    freeze(mapping, manifest)
     emit('recovery_mapping_ready', design=record['design'], mapped_blif=str(blif))
     return dict(record, mapped_blif=str(blif), mapped_blif_sha256=digest)
 

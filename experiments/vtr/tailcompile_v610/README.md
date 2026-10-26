@@ -110,10 +110,52 @@ echo "LOG=$log"
 
 本修复不会修改 VTR 或权重。扩容改变的是准备时选定的物理器件，因此只在同一新器件上比较 Default/GNN，不能直接与旧尺寸的指标混算。是否真的改善真实布局布线，仍由后续扫描与计时给出。
 
+## 2026-10-26：仅重试两个准备阶段超时
+
+`koios_sweep_002` 的新报告确认：27个设计复用已有216个图条件，另外15个设计完成资格与边界校准；剩余两个为准备超时，而非容量错误：
+
+- `dla_like.large`：综合运行21600秒后超时。外层 `vpr.out` 仅有 GNU time 缺失警告，该警告只影响分阶段内存统计；具体综合进度应查看 `inputs/dla_like.large/mapping/` 中的内部日志。
+- `bwave_like.float.large`：198×198器件、w164、seed401 校准运行14400秒后超时。日志显示布局已完成，布线尚在处理过用资源；这不能作为明确不可布线的标签。
+
+不能直接修改全局准备预算：它们已进入冻结协议、资格证书和命令签名。新增的准备重试工具保留基础协议中的21600/14400秒设置，用独立的冻结重试计划，仅为这两个设计的相应阶段增加预算。旧失败尝试与日志保留；新综合使用单独的映射目录，新校准超时重试使用单独的任务目录。已完成的综合、资格、边界和明确布线结果继续复用。
+
+在旧任务已经退出的同一输出目录执行：
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+
+export TAILCOMPILE_V610_RECOVERY_SOURCE="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v610/runs/koios_sweep_001"
+export TAILCOMPILE_V610_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v610/runs/koios_sweep_002"
+export TAILCOMPILE_V610_CHECKPOINT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v69/runs/runtime_001/models/runtime/generator.pt"
+# 基础预算仍与002原协议一致；延长的值仅来自下面两项重试计划。
+export TAILCOMPILE_V610_SYNTHESIS_TIMEOUT=21600
+export TAILCOMPILE_V610_CALIBRATION_TIMEOUT=14400
+export TAILCOMPILE_V610_TIMEOUT=7200
+export TAILCOMPILE_V610_JOBS=32
+
+python3 experiments/vtr/retry_tailcompile_v610_preparation.py \
+  --out "$TAILCOMPILE_V610_OUT" \
+  --synthesis dla_like.large=86400 \
+  --calibration bwave_like.float.large=28800 \
+  --apply
+
+mkdir -p "$TAILCOMPILE_REPO/logs"
+log="$TAILCOMPILE_REPO/logs/v610_timeout_resume_$(date +%Y%m%d_%H%M%S).log"
+nohup bash experiments/vtr/tailcompile_v610/run_pipeline.sh all \
+  >"$log" 2>&1 </dev/null &
+echo "PID=$!"
+echo "LOG=$log"
+```
+
+省略 `--apply` 可只预览。工具仅接受已记录的相应阶段超时，要求预算增加，核对原版代码哈希与当前唯一允许的准备补丁，并将原协议、新代码签名及重试计划保存在 `_repairs/preparation_timeouts/repair.json`。它拒绝修改checkpoint、器件/宽度策略、正式seed、正式7200秒预算，或在正式准备完成后迁移。重复执行同一计划可安全恢复中断的迁移。
+
+24小时和8小时是新尝试的上限，不是剩余时间估计，也不能保证困难设计在预算内结束。正式扫描仍按双方相同的7200秒执行；BWave既然在校准中耗时较长，正式扫描可能仍出现超时，届时必须保留为未知、报告覆盖限制，不能据此提高或降低Wmin。
+
 轻量同步：`.gitignore` 默认仅放行审计文件、报告、成本和指标，不提交 RRG、网表、图张量、模型或逐任务巨大输出。
 
 ```bash
-git add -- experiments/vtr/tailcompile_v610/runs/koios_sweep_001
+git add -- experiments/vtr/tailcompile_v610/runs/koios_sweep_002
 git diff --cached --stat
 git commit -m "Record frozen-weight benchmark sweep"
 git push origin main
