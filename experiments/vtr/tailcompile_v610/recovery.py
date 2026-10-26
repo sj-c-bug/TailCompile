@@ -19,6 +19,8 @@ from recovery_inputs import prepare_input, resize_input, is_device_capacity_fail
 from recovery_source import load_recovery
 from preparation_retry import (load_retry_plan, override_for,
     audit as retry_audit, calibration_destination)
+from preparation_admission import (load_admission_plan, load_deferred,
+    timeout_evidence, save_deferred)
 
 
 def policy(a):
@@ -209,34 +211,73 @@ def prepare_design(a,record,recovery):
         a.out/'screen'/record['design'])
 
 
+def admitted_graph_worker(task):
+    """Reuse a validated subset without rewriting a wider shared-cache proof."""
+    a,records,width=task
+    if (a.out/'preparation_admission.json').is_file() and all(
+            (a.out/'graphs'/r['design']/f'w{width}'/'sweep_graph.json').is_file() for r in records):
+        from prepare import _cached_graph
+        cached=[_cached_graph(record,width,a) for record in records]
+        if all(row is not None for row in cached):
+            emit('reuse_admitted_graphs',designs=[r['design'] for r in records],width=width,
+                 note='Validated graph subset retained; original shared RRG consumer proof unchanged')
+            return cached
+    return graph_group_worker(task)
+
+
 def prepare(a):
     from inventory import discover
+    admission=load_admission_plan(a)
+    deferred=load_deferred(a) if admission else {}
     retry_plan=load_retry_plan(a)
     if retry_plan:
         emit('preparation_retry_authorized',overrides=retry_plan['overrides'],
             note='Base preparation policy and formal scan/timing budgets unchanged')
     inventory=discover(a.vtr,a.source,a.checkpoint_metadata,a.designs,scope=a.scope)
     freeze(a.out/'inventory.json',inventory)
+    requested={row['design'] for row in inventory['designs']}
+    if set(deferred)-requested:
+        raise ValueError('Admission contains benchmarks outside the frozen inventory')
+    eligible=requested-set(deferred)
+    def coverage_snapshot():
+        return dict(requested_design_count=len(requested),eligible_design_count=len(eligible),
+            deferred_design_count=len(deferred),deferred=[deferred[name] for name in sorted(deferred)])
+    if deferred:
+        emit('preparation_timeouts_deferred',**coverage_snapshot(),
+            note='Timeouts remain unknown coverage; ready designs continue without retrying them')
     recovery=load_recovery(a,inventory)
-    contexts=list(recovery['contexts']);ready=[];failures=[];lock=threading.Lock()
+    contexts=[row for row in recovery['contexts'] if row['design'] in eligible]
+    ready=[];failures=[];lock=threading.Lock()
     cached={c['design'] for c in contexts}
-    records=[r for r in inventory['designs'] if r['design'] not in cached]
+    records=[r for r in inventory['designs'] if r['design'] in eligible and r['design'] not in cached]
+    def mark_timeout(record,directory):
+        evidence=timeout_evidence(a,record['design'],directory)
+        with lock:
+            deferred[record['design']]=evidence
+            eligible.discard(record['design'])
+            contexts[:]=[row for row in contexts if row['design']!=record['design']]
+            save_deferred(a,admission,deferred)
+        emit('preparation_timeout_deferred',**{'benchmark':record['design'],'evidence':evidence},
+             note='Other prepared designs continue; this design remains unknown coverage')
     def progress(stage):
         with lock:
             report=dict(schema='tailcompile-v610-recovery-preparation-1',complete=False,stage=stage,
                 inventory_design_count=len(inventory['designs']),reused_design_count=len(cached),
                 ready_contexts=len(contexts),prepared_designs=len(ready),failures=list(failures),excluded=[],
-                policy=policy(a),recovery_source=str(a.recovery_source))
+                policy=policy(a),recovery_source=str(a.recovery_source),coverage_complete=False,**coverage_snapshot())
             write(a.out/'preparation_report.json',report)
             write(a.out/'prepared_inputs.json',dict(designs=sorted(ready,key=lambda r:r['design'])))
             emit('recovery_progress',stage_name=stage,reused_designs=len(cached),ready_contexts=len(contexts),
-                 qualified_designs=len(ready),failed=len(failures))
+                 qualified_designs=len(ready),failed=len(failures),deferred_designs=len(deferred))
     def one(record):
         try:
             value=prepare_design(a,record,recovery)
             with lock:ready.append(value)
         except Exception as error:
-            with lock:failures.append(_failure(record,'recovery_qualification',error))
+            if admission and getattr(error,'status',None)=='timeout' and getattr(error,'directory',None):
+                mark_timeout(record,error.directory)
+            else:
+                with lock:failures.append(_failure(record,'recovery_qualification',error))
             if storage_error(error):raise
         finally:progress('qualification')
     parallel(one,records,a.prepare_jobs)
@@ -246,6 +287,8 @@ def prepare(a):
         raise RuntimeError(f'Recovery qualification incomplete: {len(failures)} failures; reusable successes retained')
     groups={}
     for record in ready:
+        if record['design'] not in eligible:
+            continue
         for width in record['widths']:
             groups.setdefault((record['device_width'],record['device_height'],width),[]).append(record)
     # The original bounded worker validates all consumers before reclaiming RRG.
@@ -259,18 +302,40 @@ def prepare(a):
         pool=cf.ProcessPoolExecutor(max_workers=min(a.rr_jobs,len(tasks)),mp_context=mp.get_context('spawn'))
         iterator=iter(tasks);pending={};pressure=False
         def submit():
-            try:task=next(iterator)
-            except StopIteration:return
-            check_free_space(a.out);pending[pool.submit(graph_group_worker,task)]=task
+            while True:
+                try:task=next(iterator)
+                except StopIteration:return
+                active=[record for record in task[1] if record['design'] in eligible]
+                if active:
+                    task=(task[0],active,task[2])
+                    check_free_space(a.out);pending[pool.submit(admitted_graph_worker,task)]=task
+                    return
         try:
             for _ in range(min(a.rr_jobs,len(tasks))):submit()
             while pending:
                 done,_=cf.wait(pending,timeout=5,return_when=cf.FIRST_COMPLETED)
                 for future in done:
                     task=pending.pop(future)
-                    try:contexts.extend(future.result())
+                    try:contexts.extend(row for row in future.result() if row['design'] in eligible)
                     except Exception as error:
-                        failures.extend(dict(_failure(r,'graph',error),width=task[2]) for r in task[1])
+                        first=task[1][0]
+                        build=a.out/'device_cache'/f'{first["device_width"]}x{first["device_height"]}'/f'w{task[2]}'/'build'
+                        recorded_timeout=(getattr(error,'status',None)=='timeout' and getattr(error,'directory',None))
+                        exact_rrg_failure=str(error)==f'Pack-only RRG export failed: {build}/vpr.out'
+                        if admission and (recorded_timeout or exact_rrg_failure):
+                            directory=error.directory if recorded_timeout else build
+                            try:
+                                proof=timeout_evidence(a,first['design'],directory)
+                            except (OSError,ValueError,KeyError):
+                                proof=None
+                            if proof:
+                                for record in task[1]:
+                                    if record['design'] in eligible:
+                                        mark_timeout(record,directory)
+                            else:
+                                failures.extend(dict(_failure(r,'graph',error),width=task[2]) for r in task[1])
+                        else:
+                            failures.extend(dict(_failure(r,'graph',error),width=task[2]) for r in task[1])
                         pressure=pressure or storage_error(error)
                     if not pressure:submit()
                 progress('graphs')
@@ -279,19 +344,24 @@ def prepare(a):
             _terminate_pool(pool);raise
         if pressure:raise StoragePressureError('Recovery graph dispatch stopped on disk pressure')
     contexts.sort(key=lambda c:(c['design'],c['width']))
-    complete={r['design'] for r in inventory['designs'] if
+    complete={r['design'] for r in inventory['designs'] if r['design'] in eligible and
         (group:=[c for c in contexts if c['design']==r['design']]) and
         sorted(c['width'] for c in group)==sorted(group[0]['widths'])}
-    report=dict(schema='tailcompile-v610-recovery-preparation-1',complete=not failures and len(complete)==len(inventory['designs']),
-        stage='complete' if not failures else 'incomplete',inventory_design_count=len(inventory['designs']),
+    executable_complete=bool(eligible) and not failures and complete==eligible
+    report=dict(schema='tailcompile-v610-recovery-preparation-1',complete=executable_complete,
+        stage='complete' if executable_complete else 'incomplete',inventory_design_count=len(inventory['designs']),
         ready_design_count=len(complete),context_count=len(contexts),failures=failures,excluded=[],
         reused_context_count=len(recovery['contexts']),policy=policy(a),no_training=True,teacher_trials=0,
-        recovery_source=str(a.recovery_source),
-        benchmark_status=[dict(design=r['design'],family=r['family'],status='ready' if r['design'] in complete else 'incomplete') for r in inventory['designs']])
+        recovery_source=str(a.recovery_source),coverage_complete=executable_complete and not deferred,**coverage_snapshot(),
+        benchmark_status=[dict(design=r['design'],family=r['family'],
+            status='deferred' if r['design'] in deferred else 'ready' if r['design'] in complete else 'incomplete',
+            **({'preparation_status':'timeout','routability':'unknown','evidence':deferred[r['design']]}
+               if r['design'] in deferred else {})) for r in inventory['designs']])
     write(a.out/'preparation_report.json',report)
     write(a.out/'contexts.partial.json',dict(contexts=contexts))
     if not report['complete']:
         raise RuntimeError('Recovery graph preparation incomplete; completed consumers retained')
     freeze(a.out/'contexts.json',dict(schema='tailcompile-v610-contexts-1',contexts=contexts))
-    emit('prepare_complete',designs=len(complete),contexts=len(contexts),reused_contexts=len(recovery['contexts']))
+    emit('prepare_complete',designs=len(complete),contexts=len(contexts),reused_contexts=len(recovery['contexts']),
+         deferred_designs=len(deferred),coverage_complete=report['coverage_complete'])
     return dict(contexts=contexts,report=report)

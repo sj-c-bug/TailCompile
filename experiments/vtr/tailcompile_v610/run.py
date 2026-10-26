@@ -41,6 +41,19 @@ def options(a):
                 density_step=1., repair_passes=a.repair_passes, repair_topk=a.repair_topk)
 
 
+def preparation_coverage(a, contexts):
+    """Expose deferred designs without turning their unknown outcomes into labels."""
+    path=a.out/'preparation_report.json'
+    saved=read(path) if path.is_file() else {}
+    deferred=saved.get('deferred',[])
+    evaluated=len({c['design'] for c in contexts})
+    requested=saved.get('requested_design_count',saved.get('inventory_design_count',evaluated))
+    return dict(requested_design_count=requested,evaluated_design_count=evaluated,
+        deferred_design_count=len(deferred),deferred=deferred,
+        coverage_complete=bool(saved.get('coverage_complete',not deferred and requested==evaluated)),
+        assessment_scope='Prepared designs only; deferred timeouts have no Wmin/QoR/runtime result')
+
+
 def prepare(a):
     if a.recovery_source:
         from recovery import prepare as prepare_inputs
@@ -106,6 +119,16 @@ def load(a, vpr=False):
     keys = [(c['design'], c['width']) for c in contexts]
     if len(set(keys)) != len(keys):
         raise ValueError('Duplicate sweep context')
+    if ((a.out/'preparation_admission.json').exists() or
+            (a.out/'_repairs/preparation_admission/repair.json').exists()):
+        from preparation_admission import load_deferred
+        deferred=load_deferred(a)
+        requested={r['design'] for r in read(a.out/'inventory.json')['designs']}
+        if {c['design'] for c in contexts} != requested-set(deferred):
+            raise ValueError('Prepared context coverage differs from the audited timeout deferrals')
+        actual=read(a.out/'preparation_report.json').get('deferred',[])
+        if actual != [deferred[name] for name in sorted(deferred)]:
+            raise ValueError('Reported timeout coverage changed after preparation')
     a.timeout = p['timeout']
     if vpr:
         e.identity(a)
@@ -258,6 +281,8 @@ def scan_report(a):
         status_counts=dict(Counter(r['status'] for r in rows)),recorded_trials=len(rows),
         expected_trials=len(contexts)*len(p['seeds'])*2,
         checkpoint_sha256=p['checkpoint_sha256'],evaluation_role=p['evaluation_role'])
+    result['preparation_coverage']=preparation_coverage(a,contexts)
+    result['coverage_complete']=result['preparation_coverage']['coverage_complete']
     write(a.out/'evaluation_report.json',result)
     return result
 
@@ -438,8 +463,11 @@ def runtime_report(a,p=None,contexts=None,rows=None,protocol=None):
     report['by_family']=grouped_summaries(report['by_design'],'family')
     report['by_checkpoint_exposure']=grouped_summaries(report['by_design'],'checkpoint_exposure')
     report['execution_complete']=len(rows)==len(expected)*2
+    report['preparation_coverage']=preparation_coverage(a,contexts)
+    report['coverage_complete']=report['preparation_coverage']['coverage_complete']
+    report['full_inventory_passed']=bool(report['passed'] and report['coverage_complete'])
     write(root/'runtime_report.json',report)
-    columns=['design','family','original_split','checkpoint_exposure','default_mean_wmin','gnn_mean_wmin',
+    columns=['design','family','original_split','checkpoint_exposure','preparation_status','default_mean_wmin','gnn_mean_wmin',
              'wmin_ratio','vpr_ratio','compute_plus_vpr_ratio','cpd_ratio','wirelength_ratio',
              'joint_success_pairs','success_gain_pairs','success_loss_pairs','passed']
     with (a.out/'benchmark_summary.csv').open('w',encoding='utf-8-sig',newline='') as stream:
@@ -447,13 +475,20 @@ def runtime_report(a,p=None,contexts=None,rows=None,protocol=None):
         for r in report['by_design']:
             g=r['width_guard'];ratios=r['candidate_over_baseline_geomean']
             writer.writerow(dict(design=r['design'],family=r['family'],original_split=r['original_split'],
-                checkpoint_exposure=r['checkpoint_exposure'],default_mean_wmin=g.get('baseline_mean'),
+                checkpoint_exposure=r['checkpoint_exposure'],preparation_status='ready',default_mean_wmin=g.get('baseline_mean'),
                 gnn_mean_wmin=g.get('candidate_mean'),wmin_ratio=g['ratio'],vpr_ratio=ratios['vpr'],
                 compute_plus_vpr_ratio=ratios['total'],cpd_ratio=ratios['cpd'],wirelength_ratio=ratios['wirelength'],
                 joint_success_pairs=r['joint_success_pairs'],success_gain_pairs=r['success_gain_pairs'],
                 success_loss_pairs=r['success_loss_pairs'],passed=r['passed']))
+        inventory=read(a.out/'inventory.json')['designs'] if (a.out/'inventory.json').exists() else []
+        metadata={r['design']:r for r in inventory}
+        for deferred in report['preparation_coverage']['deferred']:
+            name=deferred['design'];info=metadata.get(name,{})
+            writer.writerow(dict(design=name,family=info.get('family'),original_split=info.get('original_split'),
+                checkpoint_exposure=info.get('checkpoint_exposure'),preparation_status='deferred_timeout'))
     write(a.out/'benchmark_summary.json',report)
-    emit('runtime_report',path=str(root/'runtime_report.json'),complete=report['complete'],passed=report['passed'])
+    emit('runtime_report',path=str(root/'runtime_report.json'),complete=report['complete'],passed=report['passed'],
+        coverage_complete=report['coverage_complete'],deferred_designs=report['preparation_coverage']['deferred_design_count'])
     return report
 
 
@@ -464,7 +499,9 @@ def status(a):
         path=a.out/name
         if path.exists():
             value=read(path)
-            result[key]={k:value.get(k) for k in ('complete','execution_complete','passed','expected_trials','recorded_trials') if k in value}
+            result[key]={k:value.get(k) for k in ('complete','execution_complete','coverage_complete','passed',
+                'requested_design_count','eligible_design_count','deferred_design_count',
+                'expected_trials','recorded_trials') if k in value}
         else:
             result[key]={'exists':False}
     root=a.out/'timing'/a.run_name
