@@ -406,7 +406,7 @@ class Campaign:
                 command = [sys.executable,runner,source,arch,
                            '-temp_dir','flow','-ending_stage','abc','-timeout',str(self.args.timeout)]
                 mapping_inputs=[source,arch,runner]
-                for executable in (self.mapping/'abc/abc',self.mapping/'parmys/yosys/yosys',
+                for executable in (self.mapping/'abc/abc',self.mapping/'build/bin/yosys',
                                    self.mapping/'odin_ii/odin_II'):
                     if executable.is_file():
                         mapping_inputs.append(executable)

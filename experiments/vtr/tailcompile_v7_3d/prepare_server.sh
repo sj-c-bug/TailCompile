@@ -83,7 +83,7 @@ done
 printf 'TAILCOMPILE_GIT_ROOT=%s\nGIT_HEAD=%s\nREAD_ONLY_MAPPING_ROOT=%s\n3D_ROOT=%s\nSCRATCH=%s\n' \
   "$repo" "$(git -C "$repo" rev-parse HEAD)" "$mapping" "$TAILCOMPILE_3D_VTR_ROOT" "$scratch"
 [[ "$(git -C "$mapping" rev-parse HEAD)" == "$expected" ]] || { echo 'Original VTR dependency is not the fixed 40f8 commit.' >&2; exit 2; }
-for required in "$mapping/abc/abc" "$mapping/parmys/yosys/yosys" "$mapping/vpr/vpr"; do
+for required in "$mapping/abc/abc" "$mapping/build/bin/yosys" "$mapping/vpr/vpr"; do
   [[ -x "$required" ]] || { printf 'Complete fixed mapping environment is missing executable: %s\n' "$required" >&2; exit 2; }
 done
 [[ -f "$mapping/vtr_flow/scripts/run_vtr_flow.py" ]] || { echo 'Fixed VTR mapping runner is missing.' >&2; exit 2; }
@@ -134,7 +134,7 @@ fi
 } >"$envfile"
 readonly_evidence="$TAILCOMPILE_V7_OUT/mapping_dependency.sha256"
 if [[ ! -f "$readonly_evidence" ]]; then
-  sha256sum "$mapping/abc/abc" "$mapping/parmys/yosys/yosys" "$mapping/vpr/vpr" >"$readonly_evidence"
+  sha256sum "$mapping/abc/abc" "$mapping/build/bin/yosys" "$mapping/vpr/vpr" >"$readonly_evidence"
 fi
 sha256sum --check "$readonly_evidence"
 if [[ "$TAILCOMPILE_3D_BACKEND_READ_ONLY" == 0 && ! -f "$TAILCOMPILE_3D_VTR_ROOT/backend_manifest.json" ]]; then
