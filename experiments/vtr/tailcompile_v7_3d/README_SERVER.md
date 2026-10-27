@@ -1,6 +1,8 @@
 # v7 3D 服务器实验入口
 
-初版：2026-10-25；更新：2026-10-27。本目录提供 APBlock→原生 3D GP→APPack 的工程实现，以及分 CPU/GPU 阶段运行的三方法开发实验。遵循 [REPOSITORY_WORKFLOW.md](../../../REPOSITORY_WORKFLOW.md)：源码和轻量结果只在原 TailCompile Git 主仓库同步，VTR 是固定依赖。服务器长训练、480 次 pilot、宽度扫描及受控计时尚未执行；本地小测试不代替这些结果。
+初版：2026-10-25；更新：2026-10-28。本目录提供 APBlock→原生 3D GP→APPack 的工程实现，以及分 CPU/GPU 阶段运行的三方法开发实验。遵循 [REPOSITORY_WORKFLOW.md](../../../REPOSITORY_WORKFLOW.md)：源码和轻量结果只在原 TailCompile Git 主仓库同步，VTR 是固定依赖。服务器长训练、480 次 pilot、宽度扫描及受控计时尚未执行；本地小测试不代替这些结果。
+
+**2026-10-28 修复：**`development_002_git` 的服务器3D资格通过，后续SHA综合因相对 `-temp_dir flow` 生成错误架构XML路径而失败。新入口改为每次attempt内的绝对临时目录，使用新cohort `development_003_paths`；旧失败证据保留。已有合格后端可只读复用，详见 [修复与恢复命令](RECOVERY_MAPPING_2026-10-28.md)。
 
 服务器需先获取包含本入口的 Git 提交，发布版本以本仓库 commit 和远端同步结果为准。**若v6.10仍在运行，先按[共用实例说明](CO_RUN_V610_2026-10-27.md)检查待更新文件，再更新工作区；避免把其他尚未同步的2D修复一起带入活跃实验。** 日常不再传 ZIP 或创建另一份 TailCompile 源码目录。
 
@@ -26,12 +28,12 @@ git pull --ff-only
 | --- | --- |
 | 唯一源码仓库 | `DAC2027/TailCompile` |
 | 固定只读综合依赖 | `DAC2027/vtr_tailcompile/vtr-verilog-to-routing` |
-| 独立 3D 后端 | `DAC2027/vtr_tailcompile_3d_v7/vtr-verilog-to-routing` |
-| 新版开发输出 | `TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_002_git` |
+| 新建独立 3D 后端 | `TailCompile/.deps/tailcompile_v7_3d/vtr-verilog-to-routing`（Git忽略） |
+| 新版开发输出 | `TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_003_paths` |
 | 大型临时产物 | `TailCompile/vtr_work/tailcompile_v7_3d` |
 | 统一日志 | `TailCompile/logs` |
 
-固定原 VTR 下必须有完整的 `abc/abc`、`parmys/yosys/yosys` 和 `vtr_flow/`。新 3D 根必须与原 VTR、源码仓库互不包含；不能把它设成原 2D VTR。新 cohort 使用 `development_002_git`，避免与旧交付方式留下的 protocol 混用。
+固定原 VTR 下必须有完整的 `abc/abc`、`parmys/yosys/yosys` 和 `vtr_flow/`。新增3D后端只能在主仓库的 `.deps/tailcompile_v7_3d/` 子树构建，并与原VTR及源码／结果目录分离；不能设为原2D安装。脚本解析符号链接，拒绝 `.deps`、结果或scratch逃逸到仓库外。现有仓库外3D后端必须显式设置 `TAILCOMPILE_3D_BACKEND_READ_ONLY=1`，仅允许核验与执行，缺少现成binary／manifest时直接停止，不在外部补建。全部新写入在主仓库内，原2D安装继续只读。新 cohort 使用 `development_003_paths`，避免与旧失败缓存和冻结源码签名混用。
 
 先激活你已有的 Torch 环境并确认 `python3 -c "import torch; print(torch.__version__)"`。脚本继承当前环境，不自动执行 `conda activate`，也不要求 `conda init`。必要时按已有环境设置动态库路径；CPU 节点也需 PyTorch，因为图构建和初始化会用 CPU tensors。
 
@@ -41,7 +43,7 @@ git pull --ff-only
 
 ```bash
 export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
-export TAILCOMPILE_V7_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/runs/development_002_git"
+export TAILCOMPILE_V7_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/runs/development_003_paths"
 export TAILCOMPILE_V7_TIMEOUT=3600
 entry="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/prepare_server.sh"
 bash "$entry" --check
@@ -59,7 +61,7 @@ echo "PID=$! LOG=$log"
 
 ## 冻结开发配置
 
-入口首次复制 [campaign.example.json](campaign.example.json) 到输出目录的 `campaign.json`，不会覆盖已有配置。在任何方法效果可见前核对 RTL、固定 grid、家族与资源组。准备完成后可恢复独立的3D环境配置：
+入口首次复制 [campaign.example.json](campaign.example.json) 到输出目录的 `campaign.json`，不会覆盖已有配置。在任何方法效果可见前核对 RTL、固定 grid、家族与资源组。完整bootstrap会生成以下环境快照；仅通过 `--stage` 恢复003的流程请重用恢复文档中的exports，不能source仍指向002的旧快照：
 
 ```bash
 source "$TAILCOMPILE_REPO/env_3d_v7.sh"
@@ -89,7 +91,7 @@ entry="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/prepare_server.sh"
 # CPU：先看数量，再单独检查输入资格。当前MCML仍pending。
 bash "$entry" --stage plan
 bash "$entry" --stage prepare
-# prepare完全通过后，依次执行以下两个阶段。
+# prepare完全通过后执行校准；六个输入的boundary均为paired后才采教师。
 bash "$entry" --stage calibrate
 bash "$entry" --stage teachers
 

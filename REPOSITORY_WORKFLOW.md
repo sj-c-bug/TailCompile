@@ -32,6 +32,8 @@ export VTR_ROOT=/inspire/hdd/project/project-public/changshunjie-253114010247/ch
 
 ## 日常同步方式
 
+用户约定（2026-10-28）：本仓库的修改完成并通过必要检查后，Codex直接创建Git提交，无需逐次确认。仅暂存本次任务负责的源码、文档和轻量证据，保留无关修改；完成后报告commit及是否已推送。
+
 代码更新通过 TailCompile Git 同步，不需要传源码压缩包：
 
 ```bash
@@ -65,9 +67,11 @@ git push origin main
 | 新3D scratch | `$TAILCOMPILE_REPO/vtr_work/tailcompile_v7_3d/` |
 | 主日志 | `$TAILCOMPILE_REPO/logs/`，忽略入Git |
 | 2D执行／综合依赖 | 保持现有 `VTR_ROOT` checkout 和binary不变，只读复用综合工具 |
-| 3D执行依赖 | 同一40f8基础版本，独立目录 `.../DAC2027/vtr_tailcompile_3d_v7/vtr-verilog-to-routing`，含v2异构修复和XYZ hook；由3D专用变量指定 |
+| 3D执行依赖 | 同一40f8基础版本，默认在 `$TAILCOMPILE_REPO/.deps/tailcompile_v7_3d/vtr-verilog-to-routing` 独立构建，含v2异构修复和XYZ hook；`.deps` 不进入Git |
 
-本次任务明确授权了3D后端开发，所以它可以在独立目录构建；这不是在原2D安装上追加补丁。新入口见 `experiments/vtr/tailcompile_v7_3d/prepare_server.sh`。它从自身位置确定主Git根，不读取旧ZIP清单，不自动激活conda，不自动Git拉取／提交／推送。
+**2026-10-28 写入边界更新：**未经用户进一步要求，服务器写入仅限真实解析后的 `$TAILCOMPILE_REPO` 和指定的原 `DAC2027/vtr_tailcompile/vtr-verilog-to-routing` 根。当前3D流程进一步将全部新增写入放在主仓库内：依赖在 `.deps/`，scratch在 `vtr_work/tailcompile_v7_3d/`，结果在v7的 `runs/`，日志在 `logs/`。原2D安装继续只读。`project-public/...` 与 `global_user/...` 可能是同一挂载的别名，以 `realpath` 及符号链接的实际目标判定，不能把相邻的DAC2027目录都当成可写范围。
+
+旧的仓库外3D后端若已构建，可显式设置 `TAILCOMPILE_3D_BACKEND_READ_ONLY=1` 只读核验和执行；不会在旧后端创建、补丁、重编译或清理任何文件。新建构建必须进入上述 `.deps`。新入口见 `experiments/vtr/tailcompile_v7_3d/prepare_server.sh`。它从自身位置确定主Git根，不读取旧ZIP清单，不自动激活conda，不自动Git拉取／提交／推送。
 
 原 `tailcompile_v68`、`tailcompile_v69` 的源码、输入schema、checkpoint和运行入口冻结。3D可只读复用其有明确版本的纯函数，但用独立Python进程启动、记录依赖哈希；不将两个版本的裸模块混在同一个解释器中发现测试。3D专用环境变量只在3D子进程中适配，不能覆盖调用终端的2D `VTR_ROOT`。
 

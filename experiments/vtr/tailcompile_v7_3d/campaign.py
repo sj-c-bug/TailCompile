@@ -60,6 +60,26 @@ def within(path, root):
     return path
 
 
+def validate_server_output_roots(args):
+    """Server output cannot spill into a sibling of the source repository."""
+    if not args.allow_local:
+        repo = HERE.parents[2]
+        for path in (args.out, args.scratch):
+            within(path, repo)
+
+
+def mapping_failure_message(trial):
+    """Surface the nested synthesis error instead of just its wrapper status."""
+    work = Path(trial['workdir'])
+    parts = [f'RTL mapping failed: {trial["log"]} '
+             f'(status={trial["status"]}, returncode={trial["returncode"]})']
+    for path in (work/'flow'/'parmys.out', Path(trial['log'])):
+        if path.is_file():
+            tail = '\n'.join(path.read_text(errors='replace').splitlines()[-30:])[-6000:]
+            parts.append(f'Last synthesis output ({path}):\n{tail}')
+    return '\n'.join(parts)
+
+
 @contextmanager
 def campaign_lock(out, stage='unknown'):
     """One CLI controller per output root; child generators bypass this lock."""
@@ -174,6 +194,7 @@ def hard_ap_counts(logic):
 
 class Campaign:
     def __init__(self, args):
+        validate_server_output_roots(args)
         self.args = args
         self.config = read(args.config)
         self.out, self.scratch = args.out.resolve(), args.scratch.resolve()
@@ -395,12 +416,13 @@ class Campaign:
                         command += ['-include',include]
                         mapping_inputs.append(include)
                 trial = run_trial(folder/'mapping', command, inputs=mapping_inputs,
-                                  timeout=self.args.timeout, prune=False)
-                # run_trial owns a fresh attempt cwd, including retries. A relative
-                # flow avoids sharing stale ABC intermediates between campaigns.
+                                  timeout=self.args.timeout, prune=False,
+                                  attempt_path_options=('-temp_dir',))
+                # Resolve flow to this attempt's absolute path before launching
+                # VTR: the frontend changes cwd again when running Yosys.
                 mapped = Path(trial['workdir'])/'flow'/(source.stem+'.abc.blif')
                 if trial['status'] != 'complete' or not mapped.is_file():
-                    raise RuntimeError(f'RTL mapping failed: {trial["log"]}')
+                    raise RuntimeError(mapping_failure_message(trial))
             blif = folder/'design.blif'
             if not blif.exists():
                 conversion = _module('prepare_natural_blif').prepare_blif(mapped,blif,arch)
@@ -1261,6 +1283,7 @@ def main():
         parser.error('positive resources and timeout required')
     if not args.timing_id or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' for c in args.timing_id):
         parser.error('timing-id must be a plain alphanumeric label')
+    validate_server_output_roots(args)
     within(args.out,args.workspace)
     validate_output_roots((args.out,args.scratch),
         dependency_roots=(args.vtr_root,args.mapping_vtr_root or args.vtr_root))

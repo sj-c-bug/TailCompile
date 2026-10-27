@@ -110,8 +110,33 @@ def emit(event, **values):
     print(json.dumps(dict(event=event, **values), ensure_ascii=False), flush=True)
 
 
+def attempt_path_command(command, work, options):
+    """Resolve declared relative output arguments inside this exact attempt.
+
+    The signature keeps the logical relative argument, while subprocesses such
+    as VTR's frontend receive an absolute path even after changing their cwd.
+    """
+    actual = list(command)
+    work = Path(work).resolve()
+    for option in options:
+        if actual.count(option) != 1:
+            raise ValueError(f'attempt path option must occur exactly once: {option}')
+        index = actual.index(option) + 1
+        if index >= len(actual) or not actual[index] or actual[index].startswith('-'):
+            raise ValueError(f'attempt path option needs a relative path: {option}')
+        relative = Path(actual[index])
+        if relative.is_absolute() or '..' in relative.parts:
+            raise ValueError(f'attempt path must stay inside its attempt: {option}')
+        target = (work / relative).resolve()
+        if target != work and work not in target.parents:
+            raise ValueError(f'attempt path escapes through a symlink: {option}')
+        actual[index] = str(target)
+    return actual
+
+
 def run_trial(folder, command, *, inputs=(), env=None, timeout=300, marker=None,
-              metadata=None, affinity=None, prune=True, retry_infrastructure=False):
+              metadata=None, affinity=None, prune=True, retry_infrastructure=False,
+              attempt_path_options=()):
     """Resume completed exact signatures; never silently turn an error into a label."""
     install_signal_handlers()
     raise_if_cancelled()
@@ -121,6 +146,14 @@ def run_trial(folder, command, *, inputs=(), env=None, timeout=300, marker=None,
     signature = dict(command=command, inputs={str(Path(p).resolve()): sha(p) for p in inputs},
                      env={k: str(v) for k, v in (env or {}).items()}, timeout=timeout,
                      marker=marker, metadata=metadata or {}, affinity=affinity)
+    options = tuple(attempt_path_options)
+    if len(set(options)) != len(options):
+        raise ValueError('duplicate attempt path options')
+    if options:
+        # Validate before creating a trial directory. Do not alter historical
+        # signatures for callers which do not request this path policy.
+        attempt_path_command(command, folder/'attempts'/'validation', options)
+        signature['attempt_path_options'] = list(options)
     saved = folder / 'manifest.json'
     if saved.exists():
         row = read(saved)
@@ -139,7 +172,7 @@ def run_trial(folder, command, *, inputs=(), env=None, timeout=300, marker=None,
     attempts.mkdir(exist_ok=True)
     work = attempts / f'attempt_{len(list(attempts.iterdir())) + 1:04d}'
     work.mkdir()
-    actual = command
+    actual = attempt_path_command(command, work, options)
     if affinity is not None:
         actual = ['taskset', '-c', str(affinity)] + actual
     timed = os.name == 'posix' and Path('/usr/bin/time').is_file()
@@ -151,7 +184,8 @@ def run_trial(folder, command, *, inputs=(), env=None, timeout=300, marker=None,
             del variables[name]
     variables.update(signature['env'])
     started = time.perf_counter()
-    write(work / 'started.json', dict(signature=signature, pid=os.getpid(), unix_time=time.time()))
+    write(work / 'started.json', dict(signature=signature, executed_command=actual,
+                                     command_cwd=str(work), pid=os.getpid(), unix_time=time.time()))
     with (work / 'vpr.out').open('w', encoding='utf-8') as log:
         process = subprocess.Popen(actual, cwd=work, stdout=log, stderr=subprocess.STDOUT,
                                    env=variables, start_new_session=(os.name == 'posix'))
