@@ -1,0 +1,54 @@
+{
+  "schema": "tailcompile-v7-development-campaign-1",
+  "note": "Four train development candidates plus two active validation candidates. The second heavy candidate MCML remains pending server mapping and capacity qualification; do not start the 480 pilot before prepare and Default qualification pass. All grids remain candidates until qualification. This is not an unseen-family final test cohort.",
+  "primary_runtime": "cold",
+  "tile_size": 4,
+  "minimum_free_gib": 8,
+  "generation_timeout": 120,
+  "density_passes": 2,
+  "heavy_min_hard_blocks": 16,
+  "heavy_min_peak_utilization": 0.1,
+  "light_max_hard_blocks": 8,
+  "pilot_families": ["mcml", "spmv", "sha", "or1200"],
+  "width_grid": [32, 48, 64, 80, 96, 128, 160, 224, 320, 448],
+  "validation_seeds": [531, 532],
+  "candidate_noise": [
+    {"score": 0.0, "coordinate": 0.0},
+    {"score": 0.25, "coordinate": 0.05},
+    {"score": 0.5, "coordinate": 0.1},
+    {"score": 1.0, "coordinate": 0.15}
+  ],
+  "training": {
+    "seed": 601,
+    "hidden": 64,
+    "pretrain_epochs": 20,
+    "feedback_epochs": 10,
+    "learning_rate": 0.001,
+    "feedback_weight": 0.2
+  },
+  "exploratory_pilot_if_no_protected_checkpoint": true,
+  "scan": {"step": 4, "padding": 8, "max_tasks": 20000},
+  "resident_requests": 16,
+  "designs": [
+    {"design": "sha", "family": "sha", "split": "train", "source": "sha.v", "grid": [16, 16], "pilot_group": "light", "qualification_status": "structure_qualified_light_grid_pending_default"},
+    {"design": "or1200", "family": "or1200", "split": "train", "source": "or1200.v", "grid": [20, 20], "pilot_group": "light", "qualification_status": "structure_qualified_light_grid_pending_default"},
+    {"design": "spmv", "family": "spmv", "split": "train", "source": "koios/spmv.v", "grid": [64, 64], "pilot_group": "heavy", "qualification_status": "structure_qualified_heavy_grid_pending_default"},
+    {"design": "mcml", "family": "mcml", "split": "train", "source": "mcml.v", "grid": [64, 64], "pilot_group": "heavy", "qualification_status": "pending_mapping_and_capacity_qualification"},
+    {"design": "blob_merge", "family": "blob_merge", "split": "validation", "source": "blob_merge.v", "grid": [32, 32]},
+    {"design": "diffeq1", "family": "diffeq", "split": "validation", "source": "diffeq1.v", "grid": [16, 16]}
+  ],
+  "candidate_status_ledger": [
+    {"schema_note": "Historical ap_demand_lut_ff_memory_dsp_io entries below use AP boolean hard-block counts before mode-aware DSP demand correction. They are retained as qualification history, not current mode-unit capacity demand. prepare recomputes current demand; heavy/light thresholds use hard APBlock counts independently."},
+    {"design": "sha", "status": "light_structure_qualified", "ap_demand_lut_ff_memory_dsp_io": [1811, 893, 0, 0, 74]},
+    {"design": "or1200", "status": "light_structure_qualified", "ap_demand_lut_ff_memory_dsp_io": [3348, 672, 4, 4, 747]},
+    {"design": "spmv", "status": "heavy_structure_qualified", "ap_demand_lut_ff_memory_dsp_io": [9346, 4009, 232, 32, 99]},
+    {"design": "mcml", "status": "pending_mapping_and_capacity_qualification", "reason": "Local frontend exceeded 120 seconds; hard-resource demand is unknown. Candidate grid 64x64 may be revised before method outcomes."},
+    {"design": "attention_layer", "status": "excluded_current_primitive_scope", "reason": "Existing mapped BLIF contains unsupported addition_fp_clk_16. Do not add a new primitive just to qualify this family."},
+    {"design": "tpu_like.small.os", "status": "pending_compatible_mapping", "reason": "Existing mapped artifact has incompatible primitive ports."},
+    {"design": "stereovision0", "status": "not_heavy", "reason": "Qualified structure has no DSP or memory demand."},
+    {"design": "bgm", "status": "not_heavy", "reason": "Existing candidate has 11 DSP, below the frozen 16-hard-block threshold."},
+    {"design": "ch_intrinsics", "status": "not_heavy", "reason": "Existing candidate has one memory block."},
+    {"design": "stereovision3", "status": "not_heavy", "reason": "Existing candidate has no hard-resource demand."},
+    {"design": "softmax", "status": "pending_primitive_qualification", "reason": "Not an active validation input; floating-point primitive compatibility is unverified."}
+  ]
+}

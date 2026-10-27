@@ -1,0 +1,136 @@
+{
+  "schema": "tailcompile-v7-backend-smoke-1",
+  "status": "passed",
+  "binary_sha256": "ff5a39c53c7e0be00e68bb5c41afbc521c7d1ff0512dd44047b60396742f0a71",
+  "layer_count": 2,
+  "ap_blocks": 141,
+  "trials": [
+    {
+      "name": "default",
+      "returncode": 0,
+      "elapsed_seconds": 0.7689039019999999,
+      "command": [
+        "/home/phoenix/tools/vtr-40f8d197-tailcompile-v7-3d-r2/build_tailcompile_v7/vpr",
+        "/home/phoenix/vtr_work/tailcompile_3d/heterogeneity_v2_matrix_20261022/aligned/arch.xml",
+        "/home/phoenix/vtr_work/tailcompile_3d/heterogeneity_v2_matrix_20261022/aligned/tiny.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--route_chan_width",
+        "320",
+        "--device",
+        "probe",
+        "--num_workers",
+        "1",
+        "--seed",
+        "701",
+        "--write_flat_place",
+        "post_sa.fplace",
+        "--write_legalized_flat_place",
+        "post_appack.fplace",
+        "--flat_place_verbosity",
+        "1"
+      ],
+      "env": {
+        "TC_GP_EXPORT": "/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/default/teacher"
+      },
+      "markers": [
+        "TAILCOMPILE_V7_EXPORTED stage=post_gp_teacher prefix=/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/default/teacher blocks=141 layers=2",
+        "TAILCOMPILE_V7_POST_APPACK grid=10x10x2"
+      ]
+    },
+    {
+      "name": "replay",
+      "returncode": 0,
+      "elapsed_seconds": 0.7587312700000002,
+      "command": [
+        "/home/phoenix/tools/vtr-40f8d197-tailcompile-v7-3d-r2/build_tailcompile_v7/vpr",
+        "/home/phoenix/vtr_work/tailcompile_3d/heterogeneity_v2_matrix_20261022/aligned/arch.xml",
+        "/home/phoenix/vtr_work/tailcompile_3d/heterogeneity_v2_matrix_20261022/aligned/tiny.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--route_chan_width",
+        "320",
+        "--device",
+        "probe",
+        "--num_workers",
+        "1",
+        "--seed",
+        "701",
+        "--write_flat_place",
+        "post_sa.fplace",
+        "--write_legalized_flat_place",
+        "post_appack.fplace",
+        "--flat_place_verbosity",
+        "1"
+      ],
+      "env": {
+        "TC_GP_INIT": "/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/replay.ap.tsv",
+        "TC_GP_TRACE": "/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/replay/injected",
+        "TC_GP_EXPORT": "/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/replay/teacher"
+      },
+      "markers": [
+        "TAILCOMPILE_V7_GP_INIT_CONSUMED moving_blocks=141 atoms=219 nonzero_layer_blocks=0 checksum=248928.73338052718 path=/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/replay.ap.tsv",
+        "TAILCOMPILE_V7_EXPORTED stage=injected_initial prefix=/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/replay/injected blocks=141 layers=2",
+        "TAILCOMPILE_V7_B2B_WARM_START native_gp_continues=1",
+        "TAILCOMPILE_V7_NATIVE_SOLVER_CONTINUED iteration=1",
+        "TAILCOMPILE_V7_EXPORTED stage=post_gp_teacher prefix=/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/replay/teacher blocks=141 layers=2",
+        "TAILCOMPILE_V7_POST_APPACK grid=10x10x2"
+      ]
+    },
+    {
+      "name": "changed_layer",
+      "returncode": 0,
+      "elapsed_seconds": 0.7530671380000005,
+      "command": [
+        "/home/phoenix/tools/vtr-40f8d197-tailcompile-v7-3d-r2/build_tailcompile_v7/vpr",
+        "/home/phoenix/vtr_work/tailcompile_3d/heterogeneity_v2_matrix_20261022/aligned/arch.xml",
+        "/home/phoenix/vtr_work/tailcompile_3d/heterogeneity_v2_matrix_20261022/aligned/tiny.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--route_chan_width",
+        "320",
+        "--device",
+        "probe",
+        "--num_workers",
+        "1",
+        "--seed",
+        "701",
+        "--write_flat_place",
+        "post_sa.fplace",
+        "--write_legalized_flat_place",
+        "post_appack.fplace",
+        "--flat_place_verbosity",
+        "1"
+      ],
+      "env": {
+        "TC_GP_INIT": "/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/changed_layer.ap.tsv",
+        "TC_GP_TRACE": "/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/changed_layer/injected",
+        "TC_GP_EXPORT": "/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/changed_layer/teacher"
+      },
+      "markers": [
+        "TAILCOMPILE_V7_GP_INIT_CONSUMED moving_blocks=141 atoms=219 nonzero_layer_blocks=141 checksum=419115.73338052712 path=/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/changed_layer.ap.tsv",
+        "TAILCOMPILE_V7_EXPORTED stage=injected_initial prefix=/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/changed_layer/injected blocks=141 layers=2",
+        "TAILCOMPILE_V7_B2B_WARM_START native_gp_continues=1",
+        "TAILCOMPILE_V7_NATIVE_SOLVER_CONTINUED iteration=1",
+        "TAILCOMPILE_V7_EXPORTED stage=post_gp_teacher prefix=/home/phoenix/vtr_work/tailcompile_3d/v7_native_smoke_20261024/changed_layer/teacher blocks=141 layers=2",
+        "TAILCOMPILE_V7_POST_APPACK grid=10x10x2"
+      ]
+    }
+  ],
+  "scope": "Native GP/APPack interface qualification only; no GNN/performance claim"
+}
