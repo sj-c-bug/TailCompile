@@ -32,7 +32,7 @@ export VTR_ROOT=/inspire/hdd/project/project-public/changshunjie-253114010247/ch
 
 ## 日常同步方式
 
-用户约定（2026-10-28）：本仓库的修改完成并通过必要检查后，Codex直接创建Git提交，无需逐次确认。仅暂存本次任务负责的源码、文档和轻量证据，保留无关修改；完成后报告commit及是否已推送。
+用户约定（2026-10-28）：本仓库的修改完成并通过必要检查后，Codex直接commit并push到本仓库的 `origin/main`，无需逐次确认。仅暂存本次任务负责的源码、文档和轻量证据，保留无关修改；完成后核验远端commit并报告结果。网络失败或非fast-forward时保留本地提交，说明具体阻塞，不强制推送或覆盖远端历史。
 
 代码更新通过 TailCompile Git 同步，不需要传源码压缩包：
 
