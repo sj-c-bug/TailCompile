@@ -1,10 +1,12 @@
 # v7 3D 服务器实验入口
 
-初版：2026-10-25；更新：2026-10-28。本目录提供 APBlock→原生 3D GP→APPack 的工程实现，以及分 CPU/GPU 阶段运行的三方法开发实验。遵循 [REPOSITORY_WORKFLOW.md](../../../REPOSITORY_WORKFLOW.md)：源码和轻量结果只在原 TailCompile Git 主仓库同步，VTR 是固定依赖。服务器长训练、480 次 pilot、宽度扫描及受控计时尚未执行；本地小测试不代替这些结果。
+初版：2026-10-25；更新：2026-10-29。本目录提供 APBlock→原生 3D GP→APPack 的工程实现，以及分 CPU/GPU 阶段运行的三方法开发实验。遵循 [REPOSITORY_WORKFLOW.md](../../../REPOSITORY_WORKFLOW.md)：源码和轻量结果只在原 TailCompile Git 主仓库同步，VTR 是固定依赖。服务器长训练、480 次 pilot、宽度扫描及受控计时尚未执行；本地小测试不代替这些结果。
+
+**当前入口（2026-10-29）：**004 已完成 Default 校准和器件恢复，SHA、SPMV、MCML、blob_merge、diffeq1 已有完整配对宽度；OR1200 为右删失，不阻塞学习开发。按 [五设计学习实验计划与命令](QUALIFIED_LEARNING_PLAN_2026-10-29.md)，使用 `run_qualified_learning.sh cpu-teachers --background` 开始新的 `development_005_qualified_learning`。新流程只读复用003/004输入，先训练与反馈，再做600次包含受控冷计时的三方法开发对照。下文004恢复记录及原480阶段命令作为历史／完整矩阵参考，不是当前推荐的执行顺序。
 
 **2026-10-28 修复：**`development_002_git` 的服务器3D资格通过，后续SHA综合因相对 `-temp_dir flow` 生成错误架构XML路径而失败。新入口改为每次attempt内的绝对临时目录，使用新cohort `development_003_paths`；旧失败证据保留。已有合格后端可只读复用，详见 [修复与恢复命令](RECOVERY_MAPPING_2026-10-28.md)。
 
-**当前下一步：**003的输入准备已通过，MCML实际APPack需求为294个BRAM，而64×64双层器件仅248个。默认候选修正为84×84（328个BRAM），新cohort为 `development_004_capacity`。先按 [容量修正恢复命令](RECOVERY_CAPACITY_2026-10-28.md) 执行；工具核验并复用其他设计的完整校准和输入，旧记录保持只读。
+**历史容量修正（已完成）：**003的输入准备已通过，MCML实际APPack需求为294个BRAM，而64×64双层器件仅248个。候选修正为84×84（328个BRAM），cohort为 `development_004_capacity`。[容量修正恢复记录](RECOVERY_CAPACITY_2026-10-28.md) 说明了如何复用其他设计的完整校准和输入，旧记录保持只读。
 
 **004后续恢复：**MCML已经进入正常宽度扫描，随后大型RRG特征提取超过原300秒门限。按 [器件准备恢复命令](RECOVERY_DEVICE_PREPARATION_2026-10-28.md) 在原004串行补齐完整图并续跑校准；冻结源码和已有P&R保持原签名，无需重编VTR或另建cohort。
 
