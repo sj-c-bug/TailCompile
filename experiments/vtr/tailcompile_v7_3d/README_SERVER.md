@@ -4,6 +4,8 @@
 
 **2026-10-28 修复：**`development_002_git` 的服务器3D资格通过，后续SHA综合因相对 `-temp_dir flow` 生成错误架构XML路径而失败。新入口改为每次attempt内的绝对临时目录，使用新cohort `development_003_paths`；旧失败证据保留。已有合格后端可只读复用，详见 [修复与恢复命令](RECOVERY_MAPPING_2026-10-28.md)。
 
+**当前下一步：**003的输入准备已通过，MCML实际APPack需求为294个BRAM，而64×64双层器件仅248个。默认候选修正为84×84（328个BRAM），新cohort为 `development_004_capacity`。先按 [容量修正恢复命令](RECOVERY_CAPACITY_2026-10-28.md) 执行；工具核验并复用其他设计的完整校准和输入，旧记录保持只读。
+
 服务器需先获取包含本入口的 Git 提交，发布版本以本仓库 commit 和远端同步结果为准。**若v6.10仍在运行，先按[共用实例说明](CO_RUN_V610_2026-10-27.md)检查待更新文件，再更新工作区；避免把其他尚未同步的2D修复一起带入活跃实验。** 日常不再传 ZIP 或创建另一份 TailCompile 源码目录。
 
 ## 输入和目录
@@ -29,11 +31,11 @@ git pull --ff-only
 | 唯一源码仓库 | `DAC2027/TailCompile` |
 | 固定只读综合依赖 | `DAC2027/vtr_tailcompile/vtr-verilog-to-routing` |
 | 新建独立 3D 后端 | `TailCompile/.deps/tailcompile_v7_3d/vtr-verilog-to-routing`（Git忽略） |
-| 新版开发输出 | `TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_003_paths` |
+| 新版开发输出 | `TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_004_capacity` |
 | 大型临时产物 | `TailCompile/vtr_work/tailcompile_v7_3d` |
 | 统一日志 | `TailCompile/logs` |
 
-固定原 VTR 下必须有完整的 `abc/abc`、`parmys/yosys/yosys` 和 `vtr_flow/`。新增3D后端只能在主仓库的 `.deps/tailcompile_v7_3d/` 子树构建，并与原VTR及源码／结果目录分离；不能设为原2D安装。脚本解析符号链接，拒绝 `.deps`、结果或scratch逃逸到仓库外。现有仓库外3D后端必须显式设置 `TAILCOMPILE_3D_BACKEND_READ_ONLY=1`，仅允许核验与执行，缺少现成binary／manifest时直接停止，不在外部补建。全部新写入在主仓库内，原2D安装继续只读。新 cohort 使用 `development_003_paths`，避免与旧失败缓存和冻结源码签名混用。
+固定原 VTR 下必须有完整的 `abc/abc`、`parmys/yosys/yosys` 和 `vtr_flow/`。新增3D后端只能在主仓库的 `.deps/tailcompile_v7_3d/` 子树构建，并与原VTR及源码／结果目录分离；不能设为原2D安装。脚本解析符号链接，拒绝 `.deps`、结果或scratch逃逸到仓库外。现有仓库外3D后端必须显式设置 `TAILCOMPILE_3D_BACKEND_READ_ONLY=1`，仅允许核验与执行，缺少现成binary／manifest时直接停止，不在外部补建。全部新写入在主仓库内，原2D安装继续只读。新 cohort 使用 `development_004_capacity`，避免与旧失败缓存和冻结源码签名混用。
 
 先激活你已有的 Torch 环境并确认 `python3 -c "import torch; print(torch.__version__)"`。脚本继承当前环境，不自动执行 `conda activate`，也不要求 `conda init`。必要时按已有环境设置动态库路径；CPU 节点也需 PyTorch，因为图构建和初始化会用 CPU tensors。
 
@@ -43,7 +45,7 @@ git pull --ff-only
 
 ```bash
 export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
-export TAILCOMPILE_V7_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/runs/development_003_paths"
+export TAILCOMPILE_V7_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/runs/development_004_capacity"
 export TAILCOMPILE_V7_TIMEOUT=3600
 entry="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/prepare_server.sh"
 bash "$entry" --check
@@ -67,9 +69,9 @@ echo "PID=$! LOG=$log"
 source "$TAILCOMPILE_REPO/env_3d_v7.sh"
 ```
 
-示例是 4 个 train 开发候选（MCML/SPMV 重负载候选，SHA/OR1200 轻控制）＋2 个 active validation 候选（blob_merge、diffeq1）。**第二个重负载族尚未资格通过，当前不能启动 480 pilot。** 本地真实 AP 导出已确认 SHA 的 memory/DSP 为 0/0、OR1200 为 4/4、SPMV 为 232/32；MCML 的前端在本地 120 秒预算内未完成，其 hard-resource 需求未知。服务器第一步应完成 MCML 映射与容量资格，保留实际日志；不能把 pending 标签当作通过证据。
+示例是 4 个 train 开发候选（MCML/SPMV 重负载候选，SHA/OR1200 轻控制）＋2 个 active validation 候选（blob_merge、diffeq1）。**MCML的新尺寸仍待Default资格，当前不能启动480 pilot。** 本地AP导出确认SHA memory/DSP为0/0、OR1200为4/4、SPMV为232/32。服务器MCML映射和结构导出已完成，实际64×64 APPack需BRAM294、DSP102、CLB5502、IO392，BRAM超过可用248；这些是packed物理需求，不能改写成未知的APBlock统计。当前84×84的选择仅依据容量余量，实际新尺寸packing、布线和RRG审计仍待服务器运行。
 
-固定 grid 是待资格检验的输入，不代表已证明资源可行。prepare 用实际 hard APBlock 数检查重/轻分组：重组至少 16 个 memory/DSP APBlocks，且 DSP/BRAM 中至少一项相对该 grid 的容量上界利用率达到 10%；轻组至多 8 个 hard APBlocks。这里每个 hard APBlock 计一次，独立于大 DSP 消耗两个模式容量单位、小 DSP 消耗一个单位的需求表达；容量利用率采用修正后的模式单位。历史候选账本的 boolean hard-demand 单位保留注明，不用于替代当前需求。BGM 的 11 个大 DSP 不会因模式单位翻倍而突然变成合格重族。MCML 的 64×64 是候选 grid，可在看到方法效果之前按实际输入容量修订；不能降低 heavy 门槛来凑齐两重两轻。映射或基础容量不支持时先处理资格，进入正式方法比较后的失败则保留为方法结果。
+固定 grid 是待资格检验的输入，不代表已证明资源可行。prepare 用实际 hard APBlock 数检查重/轻分组：重组至少 16 个 memory/DSP APBlocks，且 DSP/BRAM 中至少一项相对该 grid 的容量上界利用率达到 10%；轻组至多 8 个 hard APBlocks。这里每个 hard APBlock 计一次，独立于大 DSP 消耗两个模式容量单位、小 DSP 消耗一个单位的需求表达；容量利用率采用修正后的模式单位。历史候选账本的 boolean hard-demand 单位保留注明，不用于替代当前需求。BGM 的 11 个大 DSP 不会因模式单位翻倍而突然变成合格重族。MCML已按明确容量规则在方法比较前修正为84×84；不能降低heavy门槛来凑齐两重两轻。prepare提前拒绝需求超出资源上界的输入，实际packing仍须通过Default校准；进入正式方法比较后的失败保留为方法结果。
 
 `candidate_status_ledger` 保留已查候选及排除原因：attention_layer 的现成网表含当前架构不支持的 `addition_fp_clk_16`，TPU 现成网表端口不兼容；stereovision0/3、ch_intrinsics、BGM 未达到重负载门槛。softmax 暂列原语资格待查，不是 active validation 输入。此处不通过添加新 FP 原语扩大既定 scope，也不按 GNN 胜负换设计。
 

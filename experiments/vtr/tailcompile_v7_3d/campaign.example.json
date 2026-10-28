@@ -1,6 +1,6 @@
 {
   "schema": "tailcompile-v7-development-campaign-1",
-  "note": "Four train development candidates plus two active validation candidates. The second heavy candidate MCML remains pending server mapping and capacity qualification; do not start the 480 pilot before prepare and Default qualification pass. All grids remain candidates until qualification. This is not an unseen-family final test cohort.",
+  "note": "Four train development candidates plus two active validation candidates. Server MCML packing needs 294 memory blocks but the old 64x64 device has 248. MCML now uses the smallest 4-aligned square with observed typed packing utilization <=90% (84x84, memory capacity328); actual Default packing/routing and RRG audits remain pending. Do not start the 480 pilot until qualification passes. This is not an unseen-family final test cohort.",
   "primary_runtime": "cold",
   "tile_size": 4,
   "minimum_free_gib": 8,
@@ -33,7 +33,7 @@
     {"design": "sha", "family": "sha", "split": "train", "source": "sha.v", "grid": [16, 16], "pilot_group": "light", "qualification_status": "structure_qualified_light_grid_pending_default"},
     {"design": "or1200", "family": "or1200", "split": "train", "source": "or1200.v", "grid": [20, 20], "pilot_group": "light", "qualification_status": "structure_qualified_light_grid_pending_default"},
     {"design": "spmv", "family": "spmv", "split": "train", "source": "koios/spmv.v", "grid": [64, 64], "pilot_group": "heavy", "qualification_status": "structure_qualified_heavy_grid_pending_default"},
-    {"design": "mcml", "family": "mcml", "split": "train", "source": "mcml.v", "grid": [64, 64], "pilot_group": "heavy", "qualification_status": "pending_mapping_and_capacity_qualification"},
+    {"design": "mcml", "family": "mcml", "split": "train", "source": "mcml.v", "grid": [84, 84], "pilot_group": "heavy", "qualification_status": "mapped_64x64_memory_insufficient_84x84_default_pending"},
     {"design": "blob_merge", "family": "blob_merge", "split": "validation", "source": "blob_merge.v", "grid": [32, 32]},
     {"design": "diffeq1", "family": "diffeq", "split": "validation", "source": "diffeq1.v", "grid": [16, 16]}
   ],
@@ -42,7 +42,7 @@
     {"design": "sha", "status": "light_structure_qualified", "ap_demand_lut_ff_memory_dsp_io": [1811, 893, 0, 0, 74]},
     {"design": "or1200", "status": "light_structure_qualified", "ap_demand_lut_ff_memory_dsp_io": [3348, 672, 4, 4, 747]},
     {"design": "spmv", "status": "heavy_structure_qualified", "ap_demand_lut_ff_memory_dsp_io": [9346, 4009, 232, 32, 99]},
-    {"design": "mcml", "status": "pending_mapping_and_capacity_qualification", "reason": "Local frontend exceeded 120 seconds; hard-resource demand is unknown. Candidate grid 64x64 may be revised before method outcomes."},
+    {"design": "mcml", "status": "mapped_64x64_memory_insufficient", "observed_packed_demand": {"io": 392, "clb": 5502, "dsp_top": 102, "memory": 294}, "reason": "Server Default w32 failed before routing: memory demand294 > physical capacity248. New84x84 candidate supplies328 memory blocks under the pre-method <=90% observed packing utilization rule; actual new Default P&R still required."},
     {"design": "attention_layer", "status": "excluded_current_primitive_scope", "reason": "Existing mapped BLIF contains unsupported addition_fp_clk_16. Do not add a new primitive just to qualify this family."},
     {"design": "tpu_like.small.os", "status": "pending_compatible_mapping", "reason": "Existing mapped artifact has incompatible primitive ports."},
     {"design": "stereovision0", "status": "not_heavy", "reason": "Qualified structure has no DSP or memory demand."},

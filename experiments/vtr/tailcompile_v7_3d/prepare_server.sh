@@ -51,7 +51,7 @@ export TAILCOMPILE_3D_PYTHON="${TAILCOMPILE_3D_PYTHON:-python3}"
 export TAILCOMPILE_3D_TRAIN_DEVICE="${TAILCOMPILE_3D_TRAIN_DEVICE:-cpu}"
 export TAILCOMPILE_3D_BINARY="$TAILCOMPILE_3D_VTR_ROOT/vpr/vpr"
 export TAILCOMPILE_3D_BACKEND_MANIFEST="$TAILCOMPILE_3D_VTR_ROOT/backend_manifest.json"
-export TAILCOMPILE_V7_OUT="$(realpath -m "${TAILCOMPILE_V7_OUT:-$module/runs/development_003_paths}")"
+export TAILCOMPILE_V7_OUT="$(realpath -m "${TAILCOMPILE_V7_OUT:-$module/runs/development_004_capacity}")"
 case "$TAILCOMPILE_V7_OUT/" in "$module/runs/"*) ;; *) echo 'v7 results must stay inside this module runs directory.' >&2; exit 2 ;; esac
 export TAILCOMPILE_V7_CONFIG="$(realpath -m "${TAILCOMPILE_V7_CONFIG:-$TAILCOMPILE_V7_OUT/campaign.json}")"
 export TAILCOMPILE_3D_QUALIFICATION="$(realpath -m "${TAILCOMPILE_3D_QUALIFICATION:-$TAILCOMPILE_V7_OUT/qualification}")"

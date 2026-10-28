@@ -5,7 +5,8 @@ import sys
 import tempfile
 import unittest
 
-from campaign import ARCHES, campaign_lock, hard_ap_counts, identity, pilot_tasks, select_widths, within
+from campaign import (ARCHES, campaign_lock, check_resource_upper_bound, hard_ap_counts,
+                      identity, pilot_tasks, select_widths, within)
 
 
 class CampaignTests(unittest.TestCase):
@@ -50,6 +51,16 @@ class CampaignTests(unittest.TestCase):
         logic = dict(clusters=[dict(resource='dsp_top',demand=[0,0,0,2,0]) for _ in range(11)])
         self.assertEqual(hard_ap_counts(logic),dict(memory=0,dsp_top=11))
         self.assertLess(sum(hard_ap_counts(logic).values()),16)
+
+    def test_known_bram_shortage_stops_before_width_scan(self):
+        with self.assertRaisesRegex(ValueError, r'memory.*294.*248'):
+            check_resource_upper_bound('mcml', [0,0,294,102,392], [71920,71920,248,496,3968])
+        check_resource_upper_bound('mcml84', [0,0,294,204,392], [127920,127920,328,656,5248])
+
+    def test_upper_bound_check_preserves_dense_but_not_overfull_candidate(self):
+        check_resource_upper_bound('spmv', [100,100,232,64,99], [71920,71920,248,496,3968])
+        with self.assertRaisesRegex(ValueError, 'io'):
+            check_resource_upper_bound('io_overflow', [0,0,0,0,9], [10,10,1,2,8])
 
     @unittest.skipUnless(os.name=='posix','server stage locking uses Linux flock')
     def test_second_stage_process_is_rejected_and_release_allows_resume(self):

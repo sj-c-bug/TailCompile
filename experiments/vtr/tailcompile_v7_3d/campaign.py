@@ -192,6 +192,15 @@ def hard_ap_counts(logic):
             for kind in ('memory', 'dsp_top')}
 
 
+def check_resource_upper_bound(design, demand, capacity):
+    """Reject a proven shortage; passing is not a packing feasibility certificate."""
+    names = ('lut', 'ff', 'memory', 'dsp_top', 'io')
+    shortages = {kind:dict(required=d, available=c) for kind,d,c in zip(names,demand,capacity) if d>c}
+    if shortages:
+        raise ValueError(f'{design}: resource demand exceeds device upper capacity: {shortages}; '
+                         'revise the candidate grid before P&R, rather than increasing channel width')
+
+
 class Campaign:
     def __init__(self, args):
         validate_server_output_roots(args)
@@ -251,7 +260,8 @@ class Campaign:
                       binary_sha256=self.binary_hash,
                       implementation={name: sha(HERE/name) for name in
                           ('campaign.py','architectures.py','device_graph.py','data.py','model.py',
-                           'generation.py','supervision.py','train.py','io_utils.py','repository_guard.py')})
+                           'generation.py','supervision.py','train.py','io_utils.py','repository_guard.py',
+                           'recover_capacity.py')})
         frozen['inherited_implementation']={str(path):sha(path) for path in inherited}
         mapping_commit=subprocess.check_output(['git','-C',str(self.mapping),'rev-parse','HEAD'],text=True).strip()
         if mapping_commit!=COMMIT:
@@ -342,6 +352,13 @@ class Campaign:
         arch = self.architecture(record, condition)
         key = identity(dict(architecture=sha(arch), binary=self.binary_hash, width=width))[:20]
         folder = self.out/'device_cache'/key
+        borrowed_cache = False
+        if not (folder/'manifest.json').exists() and self.config.get('input_recovery'):
+            from recover_capacity import reused_device_folder
+            previous_folder = reused_device_folder(self, key, arch, width)
+            if previous_folder is not None:
+                folder = previous_folder
+                borrowed_cache = True
         manifest, graph, rrg = folder/'manifest.json', folder/'device_graph.json', folder/'rr_graph.xml'
         with self._lock(key):
             if manifest.exists():
@@ -356,6 +373,8 @@ class Campaign:
                 elif self.rr_stats[key]!=(self._stat(rrg),self._stat(graph)):
                     raise ValueError('immutable shared device cache changed during dispatch')
                 return dict(rr_graph=str(rrg), device=str(graph), manifest=str(manifest))
+            if borrowed_cache:
+                raise ValueError('borrowed device cache manifest disappeared; refusing writes to the old cohort')
             with self.rrg_slots:
                 self.guard()
                 folder.mkdir(parents=True, exist_ok=True)
@@ -384,6 +403,14 @@ class Campaign:
         rows = []
         for original in self.config['designs']:
             self.guard()
+            if self.config.get('input_recovery'):
+                from recover_capacity import reused_prepared
+                reused = reused_prepared(self, original)
+                if reused is not None:
+                    rows.append(reused)
+                    write(self.out/'prepare_progress.json',dict(records=rows,complete=len(rows)==len(self.config['designs'])))
+                    emit('prepared_input_reused', design=original['design'], new_mapping=False)
+                    continue
             record = dict(original)
             folder = self.out/'inputs'/record['design']
             folder.mkdir(parents=True, exist_ok=True)
@@ -456,6 +483,7 @@ class Campaign:
             record['resource_upper_capacity']=upper
             record['resource_upper_utilization']=[d/c if c else None for d,c in zip(demands,upper)]
             record['physical_root_counts']=roots
+            check_resource_upper_bound(record['design'], demands, upper)
             if record.get('pilot_group') == 'heavy' and sum(hard_counts.values()) < self.config.get('heavy_min_hard_blocks',16):
                 raise ValueError(f'{record["design"]} did not meet pre-registered heavy demand threshold')
             if record.get('pilot_group') == 'light' and sum(hard_counts.values()) > self.config.get('light_max_hard_blocks',8):
@@ -570,6 +598,16 @@ class Campaign:
         grid = self.config['width_grid']
         def one_design(record):
             report_path = self.out/'calibration'/record['design']/'boundary.json'
+            if self.config.get('input_recovery'):
+                from recover_capacity import reused_calibration
+                reused = reused_calibration(self, record)
+                if reused is not None:
+                    boundary, rows = reused
+                    freeze(report_path, boundary)
+                    write(report_path.parent/'trials.json', rows)
+                    emit('calibration_reused', design=record['design'], trials=len(rows),
+                         status=boundary['status'], new_pnr_runs=0)
+                    return boundary, rows
             rows = []
             for width in grid:
                 conditions = [self.condition(record,arch,width) for arch in ARCHES]
@@ -579,7 +617,17 @@ class Campaign:
                 rows.extend(batch)
                 write(self.out/'calibration'/record['design']/'trials.json',rows)
                 if any(row['status'] not in ('success','unroutable') for row in batch):
-                    raise RuntimeError(f'Default calibration has a non-routing failure: {record["design"]}, w{width}')
+                    bad = [row for row in batch if row['status'] not in ('success','unroutable')]
+                    details = []
+                    for failed in bad[:2]:
+                        manifest = read(failed['vpr_manifest'])
+                        log = Path(manifest['log'])
+                        tail = '\n'.join(log.read_text(errors='replace').splitlines()[-35:])[-6000:]
+                        details.append(f'{failed["architecture"]} seed={failed["seed"]} '
+                                       f'status={failed["status"]} code={manifest["returncode"]}\n'
+                                       f'log={log}\n{tail}')
+                    raise RuntimeError(f'Default calibration has a non-routing failure: {record["design"]}, w{width}\n'
+                                       + '\n'.join(details))
                 boundary = select_widths(rows,grid)
                 if boundary['status'] == 'paired' or (boundary['status']=='left_censored' and boundary['W_ref']==grid[0]):
                     break
