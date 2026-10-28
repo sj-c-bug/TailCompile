@@ -10,6 +10,7 @@
 - `verify.py --out <report.json>`：有界接口／模型／存储测试，保存报告和日志。
 - [CPU 准备入口](prepare_server.sh)：从所在 Git 仓库定位源码，只读使用固定 2D 综合环境，独立构建 3D 后端；完成资格和输入准备后停止。
 - [MCML容量恢复](RECOVERY_CAPACITY_2026-10-28.md)：64×64器件BRAM248不足以容纳实际需求294，按容量规则修正为84×84；一条命令后台恢复，核验并复用其他设计已完成的输入、校准和共享RRG。
+- [大型RRG准备恢复](RECOVERY_DEVICE_PREPARATION_2026-10-28.md)：保留004和冻结解析语义，串行以独立准备预算补齐完整器件图，复用已生成RRG及既有P&R后继续校准。
 
 源码及轻量结果统一进入当前 TailCompile 主仓库，遵循 [仓库工作流](../../../REPOSITORY_WORKFLOW.md)。服务器在原 `DAC2027/TailCompile` 目录 `git pull --ff-only`，日常不通过 ZIP 建立另一份源码目录。固定原 VTR 只作为执行和映射依赖，3D 后端使用另一个独立构建目录。
 
