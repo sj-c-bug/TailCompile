@@ -35,7 +35,7 @@ git pull --ff-only
 | 大型临时产物 | `TailCompile/vtr_work/tailcompile_v7_3d` |
 | 统一日志 | `TailCompile/logs` |
 
-固定原 VTR 下必须有完整的 `abc/abc`、`parmys/yosys/yosys` 和 `vtr_flow/`。新增3D后端只能在主仓库的 `.deps/tailcompile_v7_3d/` 子树构建，并与原VTR及源码／结果目录分离；不能设为原2D安装。脚本解析符号链接，拒绝 `.deps`、结果或scratch逃逸到仓库外。现有仓库外3D后端必须显式设置 `TAILCOMPILE_3D_BACKEND_READ_ONLY=1`，仅允许核验与执行，缺少现成binary／manifest时直接停止，不在外部补建。全部新写入在主仓库内，原2D安装继续只读。新 cohort 使用 `development_004_capacity`，避免与旧失败缓存和冻结源码签名混用。
+固定原 VTR 下必须有完整的 `abc/abc`、`build/bin/yosys` 和 `vtr_flow/`。新增3D后端只能在主仓库的 `.deps/tailcompile_v7_3d/` 子树构建，并与原VTR及源码／结果目录分离；不能设为原2D安装。脚本解析符号链接，拒绝 `.deps`、结果或scratch逃逸到仓库外。现有仓库外3D后端必须显式设置 `TAILCOMPILE_3D_BACKEND_READ_ONLY=1`，仅允许核验与执行，缺少现成binary／manifest时直接停止，不在外部补建。全部新写入在主仓库内，原2D安装继续只读。新 cohort 使用 `development_004_capacity`，避免与旧失败缓存和冻结源码签名混用。
 
 先激活你已有的 Torch 环境并确认 `python3 -c "import torch; print(torch.__version__)"`。脚本继承当前环境，不自动执行 `conda activate`，也不要求 `conda init`。必要时按已有环境设置动态库路径；CPU 节点也需 PyTorch，因为图构建和初始化会用 CPU tensors。
 

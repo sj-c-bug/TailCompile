@@ -35,7 +35,7 @@ class ServerPathTests(unittest.TestCase):
         self.script(self.tools/'python', '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_LOG"\n')
         self.script(self.module/'run_pipeline.sh', '#!/bin/sh\nprintf "stage:%s\\n" "$*" >> "$FAKE_LOG"\n')
         self.mapping = self.root/'vtr_tailcompile/vtr-verilog-to-routing'
-        for relative in ('abc/abc', 'parmys/yosys/yosys', 'vpr/vpr'):
+        for relative in ('abc/abc', 'build/bin/yosys', 'vpr/vpr'):
             self.script(self.mapping/relative, '#!/bin/sh\nexit 0\n')
         (self.mapping/'vtr_flow/scripts').mkdir(parents=True)
         (self.mapping/'vtr_flow/scripts/run_vtr_flow.py').write_text('# fixture\n')

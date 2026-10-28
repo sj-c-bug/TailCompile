@@ -11,3 +11,5 @@
 完整WSL Python3.12／Torch2.6CPU契约回归 **76/76通过，0跳过**，见 [unit_tests.json](unit_tests.json) 和 [unit_tests.log](unit_tests.log)。新增检查覆盖资源上界不足提前拒绝、实际八条容量错误解析、尺寸选择、完整校准导入、旧数据改动／超时不同／实现未知拒绝、符号链接边界，以及恢复入口覆盖旧cohort变量后按顺序执行。Bash语法检查和 `git diff --check` 通过，冻结2D源码差异为空。
 
 本次没有在服务器代为运行校准，没有训练或性能收益新结论。恢复命令见 [容量恢复说明](../../RECOVERY_CAPACITY_2026-10-28.md)。
+
+推送前发现并合并用户远端 `cc3f51db3` 的Yosys路径修复，保留 `build/bin/yosys`，未覆盖远端历史。兼容表同时核验404dbe943和cc3f51db3两份Git源码blob，其他核心／传递依赖必须保持一致。合并后重新运行76项完整测试，全部通过、0跳过。

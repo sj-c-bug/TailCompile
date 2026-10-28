@@ -136,14 +136,16 @@ class CapacityRecoveryTests(unittest.TestCase):
 
     def test_registered_old_campaign_and_current_unchanged_runtime_are_compatible(self):
         repo = HERE.parents[2]
-        baseline = subprocess.check_output(['git','-C',str(repo),'show',
-            '404dbe943:experiments/vtr/tailcompile_v7_3d/campaign.py'])
-        self.assertEqual(hashlib.sha256(baseline).hexdigest(),recovery.BASE_CAMPAIGN_SHA)
         inherited = repo/'experiments/vtr/tailrisk_core.py'
-        protocol = dict(implementation={'campaign.py':recovery.BASE_CAMPAIGN_SHA,
-                        **{name:sha(HERE/name) for name in recovery.CORE}},
-                        inherited_implementation={str(inherited):sha(inherited)})
-        recovery.compatible_implementation(protocol)
+        for commit, digest in recovery.APPROVED_CAMPAIGNS.items():
+            with self.subTest(commit=commit):
+                baseline = subprocess.check_output(['git','-C',str(repo),'show',
+                    commit+':experiments/vtr/tailcompile_v7_3d/campaign.py'])
+                self.assertEqual(hashlib.sha256(baseline).hexdigest(),digest)
+                protocol = dict(implementation={'campaign.py':digest,
+                                **{name:sha(HERE/name) for name in recovery.CORE}},
+                                inherited_implementation={str(inherited):sha(inherited)})
+                recovery.compatible_implementation(protocol)
 
     def test_recovery_reuses_only_unchanged_evidence_and_keeps_all_originals_readonly(self):
         with self.temporary() as tmp:

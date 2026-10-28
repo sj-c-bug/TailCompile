@@ -21,6 +21,11 @@ from repository_guard import validate_output_roots
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 BASE_CAMPAIGN_SHA = '94de021232d83659eda21b3d4e534762696a0720bf386143449c363b33db1d2e'
+APPROVED_CAMPAIGNS = {
+    '404dbe943': BASE_CAMPAIGN_SHA,
+    # Same experiment semantics; only the mapping executable provenance path changed.
+    'cc3f51db3': '295da4ea84b4e92d125e0b49845e12463a7f087b0b4252a45b090ff06488e11a',
+}
 CORE = ('architectures.py', 'device_graph.py', 'data.py', 'model.py',
         'generation.py', 'supervision.py', 'train.py', 'io_utils.py', 'repository_guard.py')
 KINDS = ('io', 'clb', 'dsp_top', 'memory')
@@ -77,7 +82,7 @@ def choose_grid(required, old_grid, available, tile_size=4, maximum_utilization=
 
 def compatible_implementation(protocol):
     implementation = protocol.get('implementation', {})
-    if implementation.get('campaign.py') != BASE_CAMPAIGN_SHA:
+    if implementation.get('campaign.py') not in APPROVED_CAMPAIGNS.values():
         raise ValueError('unregistered previous campaign implementation')
     if set(implementation) != {'campaign.py', *CORE}:
         raise ValueError('unexpected previous implementation dependency set')
