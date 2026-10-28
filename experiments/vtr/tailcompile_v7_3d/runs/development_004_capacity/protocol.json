@@ -1,0 +1,250 @@
+{
+  "schema": "tailcompile-v7-campaign-1",
+  "config": {
+    "schema": "tailcompile-v7-development-campaign-1",
+    "note": "Four train development candidates plus two active validation candidates. The second heavy candidate MCML remains pending server mapping and capacity qualification; do not start the 480 pilot before prepare and Default qualification pass. All grids remain candidates until qualification. This is not an unseen-family final test cohort. Capacity input revision: MCML mapping completed; packed BRAM demand exceeds the old grid. The new tile-aligned grid uses a declared maximum packed-resource utilization of 0.90; new-grid Default calibration remains pending.",
+    "primary_runtime": "cold",
+    "tile_size": 4,
+    "minimum_free_gib": 8,
+    "generation_timeout": 120,
+    "density_passes": 2,
+    "heavy_min_hard_blocks": 16,
+    "heavy_min_peak_utilization": 0.1,
+    "light_max_hard_blocks": 8,
+    "pilot_families": [
+      "mcml",
+      "spmv",
+      "sha",
+      "or1200"
+    ],
+    "width_grid": [
+      32,
+      48,
+      64,
+      80,
+      96,
+      128,
+      160,
+      224,
+      320,
+      448
+    ],
+    "validation_seeds": [
+      531,
+      532
+    ],
+    "candidate_noise": [
+      {
+        "score": 0.0,
+        "coordinate": 0.0
+      },
+      {
+        "score": 0.25,
+        "coordinate": 0.05
+      },
+      {
+        "score": 0.5,
+        "coordinate": 0.1
+      },
+      {
+        "score": 1.0,
+        "coordinate": 0.15
+      }
+    ],
+    "training": {
+      "seed": 601,
+      "hidden": 64,
+      "pretrain_epochs": 20,
+      "feedback_epochs": 10,
+      "learning_rate": 0.001,
+      "feedback_weight": 0.2
+    },
+    "exploratory_pilot_if_no_protected_checkpoint": true,
+    "scan": {
+      "step": 4,
+      "padding": 8,
+      "max_tasks": 20000
+    },
+    "resident_requests": 16,
+    "designs": [
+      {
+        "design": "sha",
+        "family": "sha",
+        "split": "train",
+        "source": "sha.v",
+        "grid": [
+          16,
+          16
+        ],
+        "pilot_group": "light",
+        "qualification_status": "structure_qualified_light_grid_pending_default"
+      },
+      {
+        "design": "or1200",
+        "family": "or1200",
+        "split": "train",
+        "source": "or1200.v",
+        "grid": [
+          20,
+          20
+        ],
+        "pilot_group": "light",
+        "qualification_status": "structure_qualified_light_grid_pending_default"
+      },
+      {
+        "design": "spmv",
+        "family": "spmv",
+        "split": "train",
+        "source": "koios/spmv.v",
+        "grid": [
+          64,
+          64
+        ],
+        "pilot_group": "heavy",
+        "qualification_status": "structure_qualified_heavy_grid_pending_default"
+      },
+      {
+        "design": "mcml",
+        "family": "mcml",
+        "split": "train",
+        "source": "mcml.v",
+        "grid": [
+          84,
+          84
+        ],
+        "pilot_group": "heavy",
+        "qualification_status": "capacity_corrected_pending_default",
+        "mapped_blif": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_003_paths/inputs/mcml/mapping/attempts/attempt_0001/flow/mcml.abc.blif"
+      },
+      {
+        "design": "blob_merge",
+        "family": "blob_merge",
+        "split": "validation",
+        "source": "blob_merge.v",
+        "grid": [
+          32,
+          32
+        ]
+      },
+      {
+        "design": "diffeq1",
+        "family": "diffeq",
+        "split": "validation",
+        "source": "diffeq1.v",
+        "grid": [
+          16,
+          16
+        ]
+      }
+    ],
+    "candidate_status_ledger": [
+      {
+        "schema_note": "Historical ap_demand_lut_ff_memory_dsp_io entries below use AP boolean hard-block counts before mode-aware DSP demand correction. They are retained as qualification history, not current mode-unit capacity demand. prepare recomputes current demand; heavy/light thresholds use hard APBlock counts independently."
+      },
+      {
+        "design": "sha",
+        "status": "light_structure_qualified",
+        "ap_demand_lut_ff_memory_dsp_io": [
+          1811,
+          893,
+          0,
+          0,
+          74
+        ]
+      },
+      {
+        "design": "or1200",
+        "status": "light_structure_qualified",
+        "ap_demand_lut_ff_memory_dsp_io": [
+          3348,
+          672,
+          4,
+          4,
+          747
+        ]
+      },
+      {
+        "design": "spmv",
+        "status": "heavy_structure_qualified",
+        "ap_demand_lut_ff_memory_dsp_io": [
+          9346,
+          4009,
+          232,
+          32,
+          99
+        ]
+      },
+      {
+        "design": "mcml",
+        "status": "pending_mapping_and_capacity_qualification",
+        "reason": "Local frontend exceeded 120 seconds; hard-resource demand is unknown. Candidate grid 64x64 may be revised before method outcomes."
+      },
+      {
+        "design": "attention_layer",
+        "status": "excluded_current_primitive_scope",
+        "reason": "Existing mapped BLIF contains unsupported addition_fp_clk_16. Do not add a new primitive just to qualify this family."
+      },
+      {
+        "design": "tpu_like.small.os",
+        "status": "pending_compatible_mapping",
+        "reason": "Existing mapped artifact has incompatible primitive ports."
+      },
+      {
+        "design": "stereovision0",
+        "status": "not_heavy",
+        "reason": "Qualified structure has no DSP or memory demand."
+      },
+      {
+        "design": "bgm",
+        "status": "not_heavy",
+        "reason": "Existing candidate has 11 DSP, below the frozen 16-hard-block threshold."
+      },
+      {
+        "design": "ch_intrinsics",
+        "status": "not_heavy",
+        "reason": "Existing candidate has one memory block."
+      },
+      {
+        "design": "stereovision3",
+        "status": "not_heavy",
+        "reason": "Existing candidate has no hard-resource demand."
+      },
+      {
+        "design": "softmax",
+        "status": "pending_primitive_qualification",
+        "reason": "Not an active validation input; floating-point primitive compatibility is unverified."
+      }
+    ],
+    "input_recovery": {
+      "catalog": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_004_capacity/capacity_recovery_catalog.json",
+      "sha256": "a794393b90211214736e61de1dfb4385793f1024d330d957ec8d892831ea5656"
+    }
+  },
+  "backend_manifest_sha256": "c4ef1d81e718e3b2cb71feaf8138b62b2f0ecaea738887c79cc1f3819cfca3f2",
+  "binary_sha256": "0e38bedc0850b1960137f0a2d939a88bbbfa176749add5d325526dfd194f4795",
+  "implementation": {
+    "campaign.py": "269ed7f53c5255b9f32f80933c3963360e18148bc21b7540d31e1463588b4112",
+    "architectures.py": "222834701b406ab81cece1a48c231270938b14f8414766b40fb0a92968b47f56",
+    "device_graph.py": "979015bbe461717e798b77be76292fdc35817bf9b859c82c03b5b5b3b09f5d47",
+    "data.py": "3200c72869492efd71b4135f428bac9ff3cb804d990b7044b083070a73bb311b",
+    "model.py": "58da60623befa95baf4572313302e51f7d1b653a38d650a21ca182b198312b35",
+    "generation.py": "51c5a81329d007eb06e64f4db59442f81940d48d9756f61f7e270ed0ddfdc21f",
+    "supervision.py": "2d863af76544370f76e3a2ba033dccf4c6f0d0dd4e8727f5283b7162ca626a6a",
+    "train.py": "d25c3a8a5e138dbf039d16398686ec494a1f8672e589bbea512ac6d0d6c66084",
+    "io_utils.py": "5e076ef18cad2d21d2f3d4db73500f142f002e230c3bd6c5fcf6a5aec2009b08",
+    "repository_guard.py": "8aea12048e8b5f980164c5cd330c0aac7ba02198fee873087027e56302a3f9fc",
+    "recover_capacity.py": "97421b958c21b80463f82f9b6e53310985171ec5094fd34b4f56f8a6d0a6eccb"
+  },
+  "inherited_implementation": {
+    "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v68/model.py": "2545ac76392eb70a3d8a1f0e5d959e3428f1dd8595e7a896a421af18bcc86a92",
+    "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v68/data.py": "39e58fe981fc2c1a0b9f8f17cfb109fd7206b2740a2b830ca54e541a90a2a26c",
+    "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v69/phase_metrics.py": "a63c0eb5d8fdcee7e95e1cad991b54f35eae758cd973e60d921968092a9bb908",
+    "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailrisk_core.py": "31ef733565effbcf8832e67d770ca8b096cfce2f71cb24da9dec34ce6a45f3e9",
+    "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr3d/heterogeneity_fixtures.py": "9d55842d3822b82205090718b482f11216a051f5ed94ea830ceff1d485e20f3c",
+    "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr3d/pilot_architectures.py": "18302cf1cc9307401a3cb3e9c4ee8c351696391bbd1f7ab0561eee33b36147ff",
+    "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr3d/device_supply_3d.py": "79c9f5adfd17d716e9a7ac853bb2ae5a6563c0f923bd939d4b27b68363a91a3f",
+    "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr3d/prepare_natural_blif.py": "e5f2eeb010b90393786c104364db87c6c10bf7fd3113806afd4912f70bb43f5e"
+  },
+  "mapping_vtr_root": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/vtr_tailcompile/vtr-verilog-to-routing",
+  "mapping_vtr_commit": "40f8d19708b0b60e2aa04452deb1cfed68d96b0b"
+}
