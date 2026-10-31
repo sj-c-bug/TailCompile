@@ -1,6 +1,7 @@
 # TailCompile：面向逻辑异构 3D FPGA 的需求—供给联合感知预布局
 
 更新日期：2026-10-31
+实现进度（2026-11-01）：007 显式层 GNN、垂直供需 CVaR、衰减层偏好与服务器入口已实现；12 次本地 P&R 资格通过。自然设计研究矩阵尚未执行，见 [007 运行与证据](experiments/vtr/tailcompile_v7_3d/LAYER_EXECUTION_2026-11-01.md)。
 定位：研究方向与实验路线。已完成事实与待验证假设分开记录；保留原始 `fpga_routability_research_idea.md` 作为早期思路记录。
 
 **2026-10-31 方法更新（下一轮待实现）：**006 工程修复后仍未取得总 runtime 收益。下一轮改为显式 `P(layer) × P(leaf|layer)`，先共用并冻结层内位置模块，只比较确定性分层、GNN 分层及增加垂直资源池需求/容量 CVaR 的 GNN；各自配对“仅初值/早期衰减层偏好”，加 Default 共七组。实际执行以 [新的分层改进计划](experiments/vtr3d/LAYER_INITIALIZATION_PLAN_2026-10-31.md)为准：一次有界训练，224 次双宽度开发比较；本文件下方的联合 layer/leaf 与三组描述为上一版，不再作为下一轮命令依据。
