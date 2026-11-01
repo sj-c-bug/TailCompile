@@ -1,6 +1,6 @@
 # 009：以 WL / CPD 为主目标的 3D 初始化实验
 
-日期：2026-11-02。状态：**计划已冻结为下一轮设计依据，算法与运行入口尚未实现，实验尚未启动。** 新策略标识 `qor-first-20261102`，新输出 `development_009_qor`。本计划替代旧计划中针对后续实验的runtime优先目标；003–008的代码、协议与结论继续按原口径保存。
+日期：2026-11-02。状态：**前两步算法与服务器入口已实现，50项测试和4次本地真实P&R通过；自然设计512次尚待服务器。** 见[运行入口与本地证据](../vtr/tailcompile_v7_3d/QOR_EXECUTION_2026-11-02.md)。本轮不启动后文Wmin/减Z配置扫描。新策略标识 `qor-first-20261102`，新输出 `development_009_qor`；003–008继续按原口径保存。
 
 ## 1. 目标与判定
 
@@ -101,7 +101,7 @@ X/T更新XY后，历史动作来自旧policy属于离策略监督。保留collec
 
 全部四H×Z架构保留，总逻辑资源、总Z容量相同，H只改变按层资源分布、Z只改变纵向入口空间分布；从真实RRG复核。五seeds是本轮开发精度，后续独立族正式表计划10 seeds，不能把五次宣称为论文的10次复现。
 
-冻结指标：`WL_VPR`（当前日志Total wirelength）、最终CPD、完整状态/覆盖，以及实际Z用量。实施前用小图和固定版本源码核对`WL_VPR`对CHANZ的计数语义；另记XY tile-span、Z hops，不在没有tile pitch/层距时称物理微米总长度。多扇出共享分支按每net的RR节点去重，不按sink重复计线长/纵向占用。CPD来自相同后端时序模型，并记录时序约束与异常；几何代理不冒充STA。
+冻结指标：`WL_VPR`（日志Total wirelength）、最终CPD、完整状态/覆盖及实际Z用量。**已从固定40f8的`vpr/src/base/stats.cpp:150–185,422–463`核实：WL_VPR是非global网络的CHANX/CHANY node_length总和，不计CHANZ，单位为CLB segment。** 四条真实路由的去重XY统计与日志一致；见[线长语义证据](../vtr/tailcompile_v7_3d/runs/development_009_qor_local/wirelength_semantics_report.json)。Z占用/跃迁单列，不称物理3D总导线长度。多扇出按每net的RR节点去重，不按sink重复计数。CPD来自相同后端时序模型，并记录时序约束与异常。
 
 记录逐阶段GP/APPack/SA/route、冷/常驻成本与内存，但不以少迭代或初值保持率作为主要成功条件。约束和中间摘要落盘后及时清理不再用的`.net/.net.post_routing/.route`及重复图；route内需要的WL/Z摘要必须先提取，后续训练动作/权重保留。
 
