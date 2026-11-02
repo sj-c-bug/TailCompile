@@ -1,0 +1,124 @@
+{
+  "schema": "qor-campaign-009-1",
+  "objective_version": "qor-first-20261102",
+  "methods": [
+    "B",
+    "R",
+    "Q",
+    "C",
+    "X",
+    "T"
+  ],
+  "primary_comparison": [
+    "T",
+    "B"
+  ],
+  "auxiliary_comparison": [
+    "X",
+    "B"
+  ],
+  "contrasts": [
+    [
+      "Q",
+      "R"
+    ],
+    [
+      "C",
+      "Q"
+    ],
+    [
+      "X",
+      "C"
+    ],
+    [
+      "T",
+      "X"
+    ]
+  ],
+  "train_families": [
+    "spmv",
+    "mcml"
+  ],
+  "active_validation_families": [
+    "blob_merge",
+    "diffeq"
+  ],
+  "qor_weights": {
+    "wirelength": 0.5,
+    "cpd_ns": 0.5
+  },
+  "runtime_role": "cost only",
+  "factors": {
+    "R": {
+      "objective": "runtime",
+      "cut_weight": 0.1,
+      "xy_trainable": false,
+      "tail_weight": 0.0
+    },
+    "Q": {
+      "objective": "qor",
+      "cut_weight": 0.1,
+      "xy_trainable": false,
+      "tail_weight": 0.0
+    },
+    "C": {
+      "objective": "qor",
+      "cut_weight": 0.0,
+      "xy_trainable": false,
+      "tail_weight": 0.0
+    },
+    "X": {
+      "objective": "qor",
+      "cut_weight": 0.0,
+      "xy_trainable": true,
+      "tail_weight": 0.0
+    },
+    "T": {
+      "objective": "qor",
+      "cut_weight": 0.0,
+      "xy_trainable": true,
+      "tail_weight": 0.1
+    }
+  },
+  "backend_layer_prior": 0,
+  "reference_widths": {
+    "spmv": 128,
+    "mcml": 224
+  },
+  "feedback_seeds": [
+    9101,
+    9102
+  ],
+  "validation_seeds": [
+    9201,
+    9202
+  ],
+  "comparison_seeds": [
+    9001,
+    9002,
+    9003,
+    9004,
+    9005
+  ],
+  "training_seed": 9301,
+  "bootstrap_epochs": 5,
+  "feedback_epochs": 10,
+  "checkpoint_epochs": [
+    5,
+    10
+  ],
+  "structure_export_seed": 2701,
+  "feedback_runs_upper": 96,
+  "validation_runs_upper": 176,
+  "comparison_runs": 240,
+  "research_runs_upper": 512,
+  "local_engineering_runs_upper": 4,
+  "Wmin_measured": false,
+  "generalization_claim": false,
+  "original008_read_only": true,
+  "new_backend_builds": 0,
+  "new_rrg_extractions": 0,
+  "aggregation": "same successful seeds arithmetic mean per condition, ratio, architecture and family equal geometric mean",
+  "support_boundary": "R/Q/C frozen-XY actions only; X/T all validated collection policies",
+  "WL_units": "pinned VPR nonglobal CHANX/CHANY node lengths only; CHANZ excluded, reported separately; not physical micrometres"
+}
