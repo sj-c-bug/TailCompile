@@ -2,6 +2,8 @@
 
 更新日期：2026-11-02
 
+**当前实现入口：**[010资源／连接／密度学习](experiments/vtr/tailcompile_v7_3d/STRUCTURED_EXECUTION_2026-11-02.md)默认取消TailRisk，使用GNN网表上下文、层／资源监督、可微XY几何目标和有界硬叶容量解码。复用009X并安排B/X/D/N四组，研究预算上限104次P&R；最终WL/CPD仍由真实后端评价，未改后端来强行保层。新增评估报告留在本地，代码与运行说明正常同步。下文009结果及旧计划保留。
+
 **当前目标与结果：**WL/CPD共同主要，Wmin与纵向资源效率次之，runtime为成本。[009 QoR优先计划](experiments/vtr3d/EXPERIMENT_PLAN_3D_QOR_2026-11-02.md)前两步已完成，504次P&R、240次主比较全部成功；主T/Default为WL+1.52%、CPD+1.88%、最终Z使用+9.74%，没有总体QoR收益。[独立评估](experiments/vtr/tailcompile_v7_3d/runs/development_009_qor/REVIEW_2026-11-02.md)记录层决策、局部密度及风险梯度限制；下一轮需改进方法，无需重复同配方采集。WL_VPR只计XY，Z另列；Wmin/减Z配置未测。003–009原结论保留，以下旧日期段落为历史。
 007评估更新（2026-11-01）：服务器研究批次已完成，224次开发对照完整；T-S相对Default平均总时间+13.70%、CPD+0.08%、WL+1.67%，主加速目标未取得正收益。相对L-S的Tail增量为时间−1.29%、CPD−2.04%。部分教师违反逐层RAM代理，学习初值又极度集中，软风险下降没有稳定对应真实首轮超用下降；后续优先对齐监督/硬解码/后端，而非扩大同配方训练。详见 [007独立评估](experiments/vtr/tailcompile_v7_3d/runs/development_007_layer/REVIEW_2026-11-01.md)。下方“待服务器”属于早期实施状态。
 实现进度（2026-11-01）：007 显式层 GNN、垂直供需 CVaR、衰减层偏好与服务器入口已实现；12 次本地 P&R 资格通过。自然设计研究矩阵尚未执行，见 [007 运行与证据](experiments/vtr/tailcompile_v7_3d/LAYER_EXECUTION_2026-11-01.md)。
