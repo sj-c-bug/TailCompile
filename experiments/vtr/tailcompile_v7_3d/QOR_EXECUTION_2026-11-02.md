@@ -2,6 +2,8 @@
 
 日期：2026-11-02。研究依据为[009实验计划](../../vtr3d/EXPERIMENT_PLAN_3D_QOR_2026-11-02.md)。本入口只执行该计划前两步：训练改为QoR目标、固定宽度的六组比较；Wmin及减少配置Z容量另行实施。
 
+**服务器研究已完成并评估：**实际504次P&R，240次主比较全部成功；主T/Default为WL+1.52%、CPD+1.88%、最终Z使用+9.74%，没有总体QoR改善。[独立复算与诊断](runs/development_009_qor/REVIEW_2026-11-02.md)。下文启动命令与本地“待服务器”文字保留其历史／复现含义；512为上限，4个重复动作省去8次P&R。
+
 服务器自然设计阶段包含96次反馈、176次选模、240次开发比较，最多512次真实P&R。本地小模型测试不代替该矩阵，也不构成QoR改善或独立族泛化结论。
 
 实现已通过50项测试、完整生成worker检查和4次真实小网表P&R。[测试记录](runs/development_009_qor_local/unit_tests.json)、[worker记录](runs/development_009_qor_local/worker_contract_report.json)、[真实008指标回放](runs/development_009_qor_local/preference_replay_report.json)均已保存；回放得到42个QoR对和6个成功数对，18个成功对与runtime排序相反。原动作数组仍须在服务器由训练器验真。
