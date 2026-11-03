@@ -1,0 +1,112 @@
+{
+  "schema": "residual-campaign-011-1",
+  "methods": [
+    "B",
+    "D",
+    "L",
+    "Y",
+    "J"
+  ],
+  "factors": {
+    "B": "native Default",
+    "D": "frozen 010 D GNN plus capacity decoder",
+    "L": "learned choice of bounded layer edits",
+    "Y": "learned choice of bounded XY edits",
+    "J": "learned choice of joint layer and XY edits"
+  },
+  "policy": "small candidate-ranking head over frozen GNN and bounded feasible graph-conditioned edits",
+  "primary_comparisons": [
+    [
+      "L",
+      "D"
+    ],
+    [
+      "Y",
+      "D"
+    ],
+    [
+      "J",
+      "D"
+    ]
+  ],
+  "contrasts": [
+    [
+      "L",
+      "D"
+    ],
+    [
+      "Y",
+      "D"
+    ],
+    [
+      "J",
+      "D"
+    ],
+    [
+      "J",
+      "L"
+    ],
+    [
+      "J",
+      "Y"
+    ],
+    [
+      "D",
+      "B"
+    ],
+    [
+      "J",
+      "B"
+    ]
+  ],
+  "train_families": [
+    "spmv",
+    "mcml"
+  ],
+  "active_validation_families": [
+    "blob_merge",
+    "diffeq"
+  ],
+  "reference_widths": {
+    "spmv": 128,
+    "mcml": 224
+  },
+  "training_seed": 11301,
+  "feedback_seeds": [
+    11401,
+    11402
+  ],
+  "validation_seeds": [
+    11201,
+    11202
+  ],
+  "comparison_seeds": [
+    11101,
+    11102
+  ],
+  "candidates_per_arm_upper": 3,
+  "unique_candidates_per_condition_upper": 7,
+  "feedback_runs_upper": 112,
+  "validation_runs": 112,
+  "comparison_runs": 80,
+  "research_runs_upper": 304,
+  "training_epochs": 5,
+  "checkpoint_epochs": [
+    2,
+    5
+  ],
+  "source010_D_read_only": true,
+  "backbone_trainable": false,
+  "teacher_targets_used": false,
+  "projected_rewards_reused": false,
+  "tail_weight": 0.0,
+  "backend_layer_prior": 0,
+  "new_backend_builds": 0,
+  "new_rrg_extractions": 0,
+  "gate": "per arm: no lower validation success count than D and strictly negative common-population WL/CPD q; ties use D",
+  "runtime_role": "cost only",
+  "Wmin_measured": false,
+  "independent_family_test": false,
+  "metric_rule": "arithmetic same-successful-seed means, then equal architecture/family geometric ratios",
+  "WL_units": "native nonglobal CHANX/CHANY lengths only; final CHANZ separately"
+}
