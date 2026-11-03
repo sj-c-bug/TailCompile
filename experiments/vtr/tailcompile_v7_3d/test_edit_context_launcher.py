@@ -24,7 +24,9 @@ class EditContextLauncherTests(unittest.TestCase):
         shutil.copyfile(HERE/'run_edit_context_campaign.sh',self.launcher)
         self.source=self.module/'runs/development_011_residual';self.source.mkdir(parents=True)
         (self.source/'keep.json').write_text('{"read_only":true}')
-        self.out=self.module/'runs/development_012_edit_context';self.calls=self.repo/'calls.jsonl'
+        self.legacy_out=self.module/'runs/development_012_edit_context';self.legacy_out.mkdir(parents=True)
+        (self.legacy_out/'keep.json').write_text('{"serial_cohort":"frozen"}')
+        self.out=self.module/'runs/development_012_edit_context_parallel';self.calls=self.repo/'calls.jsonl'
         (self.module/'edit_context_campaign.py').write_text('''import json, os, sys
 from pathlib import Path
 stage=sys.argv[1]
@@ -59,9 +61,11 @@ if os.environ.get('FAIL_STAGE')==stage: raise SystemExit(19)
             args=dict(zip(row['args'][::2],row['args'][1::2]))
             self.assertEqual(args['--source'],str(self.source));self.assertEqual(args['--out'],str(self.out))
             self.assertEqual(args['--device'],'cuda:1');self.assertNotIn('--backend',args)
-            self.assertEqual(row['omp'],'1')
+            self.assertEqual(row['omp'],'1');self.assertEqual(args['--jobs'],'1')
+            self.assertEqual(args['--fit-timeout'],'1800')
             self.assertEqual(Path(row['tmp']),self.repo/'vtr_work/tailcompile_v7_3d/edit_context/tmp')
         self.assertEqual((self.source/'keep.json').read_bytes(),before)
+        self.assertEqual((self.legacy_out/'keep.json').read_text(),'{"serial_cohort":"frozen"}')
         self.assertFalse((self.repo/'old_2d').exists());self.assertFalse((self.repo/'old_scratch').exists())
 
     def test_failure_stops_later_stages(self):
@@ -106,6 +110,64 @@ if os.environ.get('FAIL_STAGE')==stage: raise SystemExit(19)
             self.assertEqual(self.launch(*argv).returncode,2)
         self.env['TAILCOMPILE_3D_TRAIN_DEVICE']='cuda:1junk'
         self.assertEqual(self.launch('prepare').returncode,2);self.assertEqual(self.records(),[])
+
+    def test_cpu_default_and_explicit_jobs_are_passed_to_every_stage(self):
+        result=self.launch('all');self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertEqual(len(self.records()),4)
+        for row in self.records():
+            args=dict(zip(row['args'][::2],row['args'][1::2]))
+            self.assertEqual(args['--device'],'cpu');self.assertEqual(args['--jobs'],'4')
+            self.assertEqual(row['omp'],'1')
+        self.env['TAILCOMPILE_V7_EDIT_CONTEXT_JOBS']='8'
+        result=self.launch('check');self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        args=dict(zip(self.records()[-1]['args'][::2],self.records()[-1]['args'][1::2]))
+        self.assertEqual(args['--jobs'],'8')
+
+    def test_fit_timeout_and_explicit_cache_source_are_propagated(self):
+        self.env['TAILCOMPILE_V7_EDIT_CONTEXT_FIT_TIMEOUT']='1200'
+        self.env['TAILCOMPILE_V7_EDIT_CONTEXT_CACHE_FROM']=str(self.legacy_out)
+        before=(self.legacy_out/'keep.json').read_bytes()
+        result=self.launch('check');self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        args=dict(zip(self.records()[-1]['args'][::2],self.records()[-1]['args'][1::2]))
+        self.assertEqual(args['--fit-timeout'],'1200')
+        self.assertEqual(args['--cache-from'],str(self.legacy_out))
+        self.assertEqual((self.legacy_out/'keep.json').read_bytes(),before)
+
+    def test_imported_cache_must_be_separate_canonical_012_cohort(self):
+        for cache_source in (self.out,self.out/'nested',self.repo/'external-cache',self.source):
+            self.env['TAILCOMPILE_V7_EDIT_CONTEXT_CACHE_FROM']=str(cache_source)
+            result=self.launch('prepare','--background')
+            self.assertEqual(result.returncode,2,(cache_source,result.stdout,result.stderr))
+            self.assertEqual(self.records(),[]);self.assertFalse(self.out.exists())
+            self.assertFalse((self.repo/'logs').exists())
+
+    def test_invalid_fit_timeout_is_rejected_before_writes(self):
+        for timeout in ('0','-1','1.5','never',''):
+            self.env['TAILCOMPILE_V7_EDIT_CONTEXT_FIT_TIMEOUT']=timeout
+            result=self.launch('all','--background')
+            self.assertEqual(result.returncode,2,(timeout,result.stdout,result.stderr))
+            self.assertEqual(self.records(),[])
+            self.assertFalse(self.out.exists());self.assertFalse((self.repo/'logs').exists())
+
+    def test_invalid_jobs_fail_before_creating_logs_or_runtime_directories(self):
+        for jobs in ('0','-1','1.5','many',''):
+            self.env['TAILCOMPILE_V7_EDIT_CONTEXT_JOBS']=jobs
+            result=self.launch('all','--background')
+            self.assertEqual(result.returncode,2,(jobs,result.stdout,result.stderr))
+            self.assertEqual(self.records(),[])
+            self.assertFalse(self.out.exists());self.assertFalse((self.repo/'logs').exists())
+            self.assertFalse((self.repo/'vtr_work').exists())
+
+    def test_cuda_jobs_must_be_one(self):
+        self.env['TAILCOMPILE_3D_TRAIN_DEVICE']='cuda'
+        self.env['TAILCOMPILE_V7_EDIT_CONTEXT_JOBS']='2'
+        result=self.launch('all','--background')
+        self.assertEqual(result.returncode,2,result.stdout+result.stderr)
+        self.assertEqual(self.records(),[]);self.assertFalse((self.repo/'logs').exists())
+        self.env['TAILCOMPILE_V7_EDIT_CONTEXT_JOBS']='1'
+        result=self.launch('check');self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        args=dict(zip(self.records()[-1]['args'][::2],self.records()[-1]['args'][1::2]))
+        self.assertEqual(args['--device'],'cuda');self.assertEqual(args['--jobs'],'1')
 
 
 if __name__=='__main__':unittest.main()

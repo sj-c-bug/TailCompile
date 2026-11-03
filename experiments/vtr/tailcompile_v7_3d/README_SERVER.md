@@ -1,6 +1,6 @@
 # v7 3D 服务器实验入口
 
-**当前012：**按[局部表示离线运行说明](EDIT_CONTEXT_EXECUTION_2026-11-04.md)执行`run_edit_context_campaign.sh all --background`。服务器需保留原011动作／feedback.json、008图和010 D模型；Git轻量结果不能替代这些输入。只构造一次特征缓存，完成G/E等预算拟合和按族／架构留出，不运行VPR。
+**当前012：**按[局部表示离线运行说明](EDIT_CONTEXT_EXECUTION_2026-11-04.md)执行`run_edit_context_campaign.sh all --background`。CPU默认最多4个独立拟合进程，使用新输出`development_012_edit_context_parallel`；`TAILCOMPILE_V7_EDIT_CONTEXT_JOBS`控制请求并发，CUDA保持单进程。服务器需保留原011动作／feedback.json、008图和010 D模型；Git轻量结果不能替代这些输入。特征缓存只准备一次或校验后只读复用，完成G/E等预算拟合和按族／架构留出，不运行VPR。
 
 **当前011：**按[真实 QoR 残差选择运行说明](RESIDUAL_EXECUTION_2026-11-03.md)执行`run_residual_campaign.sh`。只读复用010 D、既有输入与固定后端；独立011输出，最多112反馈＋112选模＋80五组比较。入口继承当前环境，支持后台日志；新增评估报告留在本地／服务器。
 

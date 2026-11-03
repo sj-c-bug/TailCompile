@@ -33,6 +33,8 @@ identity 的新增局部表示为零。G／E 使用同一有限候选域；离�
 
 每种设置使用 G／E 两模式、训练随机 seeds 12301／12302，共 `(1+2+4)×2×2=28` 次离线拟合。训练 seed 与 VPR seed 是不同概念；本轮 VPR 标签继续来自历史 seeds 11401／11402。
 
+28 次拟合相互独立，CPU 默认请求 **4 个进程并行**，实际并发由可用 CPU／内存及待执行任务数量限制。特征准备只执行一次，随后各进程只读共享签名缓存，每个进程一个 Torch／BLAS 线程，使用独立训练随机种子、目录、日志和 checkpoint。并行任务不会在线程间共享模型或全局随机数状态。只有调度和进度写入在父进程中完成；最终清单按固定矩阵顺序排序，任务完成先后不改变 G／E 配对或评价规则。
+
 隐藏宽度固定 32，Adam 学习率固定 0.001，训练 80 epochs。保存 epoch 5／20／80，供全数据训练拟合诊断；**留出结果固定评价 epoch 80**，不根据留出 WL／CPD、排名或收益挑 epoch、学习率或模型。每一折先确定训练 ID，再仅用训练折计算偏好权重尺度，留出标签不影响归一化或优化。
 
 族／架构相同条件下的不同候选、强度与 VPR seeds 一并分组，禁止随机拆成独立行划分训练与测试。若无有效训练偏好，保存诊断并停止，不声称已完成有意义的学习。
@@ -55,6 +57,8 @@ identity 的新增局部表示为零。G／E 使用同一有限候选域；离�
 
 使用保留原 011 动作与 feedback.json、008 图、010 D checkpoint 的服务器。Git 中的轻量结果不包含这些大型文件，本地只有结果 JSON 时不能完成自然设计特征提取。入口只读借用它们，全部新增写入位于当前仓库的独立 012 输出／scratch／logs。
 
+并行版默认使用新的 `development_012_edit_context_parallel` cohort，原串行 `development_012_edit_context` 的结果保持冻结。若旧串行任务仍在运行，先让它结束或停止该任务，再更新源码；运行中直接 `git pull` 会使旧任务后续阶段遇到代码签名变化。不要把并行版输出指向已有串行 cohort，也不要在同一输出启动两份调度器。
+
 激活已有 Torch 环境后：
 
 ```bash
@@ -62,6 +66,8 @@ cd "$TAILCOMPILE_REPO"
 git pull --ff-only
 export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
 export TAILCOMPILE_3D_TRAIN_DEVICE=cpu
+export TAILCOMPILE_V7_EDIT_CONTEXT_JOBS=4
+export TAILCOMPILE_V7_EDIT_CONTEXT_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/runs/development_012_edit_context_parallel"
 
 script="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_edit_context_campaign.sh"
 bash "$script" plan
@@ -69,9 +75,21 @@ bash "$script" check
 bash "$script" all --background
 ```
 
-CPU 是默认选择：基础 GNN 表示提取一次后，后续只训练小型评分头。已有 CUDA 环境可将 `TAILCOMPILE_3D_TRAIN_DEVICE` 改为 `cuda`，仅将评分头拟合放到 GPU。入口继承环境，不执行 conda activate，不启动 VPR。
+CPU 是默认选择：基础 GNN 表示提取一次后，后续只训练小型评分头。可将 `TAILCOMPILE_V7_EDIT_CONTEXT_JOBS` 改为 `8` 等正整数，按可用 CPU／内存安排进程数；每个进程仍只有一个计算线程。任务运行时间不再用于比较 G／E 的算法性能，完整离线成本另记。
 
-默认源 `runs/development_011_residual`，默认输出 `runs/development_012_edit_context`。独立变量为 `TAILCOMPILE_V7_EDIT_CONTEXT_SOURCE/OUT`；阶段为 `plan/check/prepare/train/report`，`all` 依次检查、准备缓存、执行拟合、汇总。支持后台日志与锁；同输出不能并发启动多个阶段。失败后修复原因并按相同冻结参数恢复，改代码或输入需新 cohort。
+已有 CUDA 环境可将 `TAILCOMPILE_3D_TRAIN_DEVICE` 改为 `cuda`，仅将评分头拟合放到 GPU。CUDA 默认并发为 1，显式设置 jobs 大于 1 会在启动前拒绝，避免多个训练进程同时争用同一设备。切换到 CUDA 时将 `TAILCOMPILE_V7_EDIT_CONTEXT_JOBS=1` 或取消此前的 CPU 并发设置。入口继承环境，不执行 conda activate，不启动 VPR。
+
+默认源 `runs/development_011_residual`，默认输出 `runs/development_012_edit_context_parallel`。独立变量为 `TAILCOMPILE_V7_EDIT_CONTEXT_SOURCE/OUT/JOBS/FIT_TIMEOUT`；每个 worker 默认超时 1800 秒，Python 入口同样支持 `--jobs N` 和 `--fit-timeout SECONDS`。阶段为 `plan/check/prepare/train/report`，`all` 依次检查、准备缓存、并行拟合、汇总。支持后台日志与锁；同输出不能并发启动多个阶段。失败后修复原因并按相同冻结参数恢复，改代码或输入需新 cohort。
+
+若旧串行 cohort 已完成特征准备，可在启动前显式指定：
+
+```bash
+export TAILCOMPILE_V7_EDIT_CONTEXT_CACHE_FROM="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/runs/development_012_edit_context"
+```
+
+并行版会核对旧缓存字节／内容签名、特征实现和来源资格，再只读复用；不会覆盖旧结果，也不导入旧评分头或用旧拟合结果替代新对照。此选项不能绕过原 011 数据的核验。未指定时在新 cohort 中正常准备一次缓存；Python 对应参数为 `--cache-from COHORT`。
+
+单个拟合失败时停止继续派发，并终止本次调度器尚未完成的 worker；保留原始失败日志、已完成任务和检查点，后续阶段不会启动。恢复时先核对已完成任务的签名与 checkpoint，仅重跑未完成项；每个拟合最多两个 attempt。阶段日志中的任务完成数表示调度进度，不表示有多少个新布局布线实验。
 
 完成后首先看日志中的阶段完成标记。评估报告保留本地／服务器；如需同步，只提交忽略规则允许的轻量协议、缓存清单与原始拟合 metrics，不使用 `git add -f` 上传缓存张量、动作或模型。
 

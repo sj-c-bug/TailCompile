@@ -31,7 +31,7 @@ repo="$(cd -- "$module/../../.." && pwd -P)"
 python="${TAILCOMPILE_3D_PYTHON:-python3}"
 command -v -- "$python" >/dev/null || { echo 'Active Python unavailable.' >&2; exit 2; }
 source="$(realpath -m "${TAILCOMPILE_V7_EDIT_CONTEXT_SOURCE:-$module/runs/development_011_residual}")"
-out="${TAILCOMPILE_V7_EDIT_CONTEXT_OUT:-$module/runs/development_012_edit_context}"
+out="${TAILCOMPILE_V7_EDIT_CONTEXT_OUT:-$module/runs/development_012_edit_context_parallel}"
 scratch="$repo/vtr_work/tailcompile_v7_3d/edit_context"; logs="$repo/logs"
 for owned in "$out" "$scratch" "$logs"; do
   [[ "$(realpath -m "$owned")" == "$owned" ]] || {
@@ -45,7 +45,22 @@ case "$source/" in "$out/"*) echo 'Source011 and output012 must be disjoint.' >&
 [[ -f "$module/edit_context_campaign.py" ]] || { echo 'Synchronize edit_context_campaign.py first.' >&2; exit 2; }
 device="${TAILCOMPILE_3D_TRAIN_DEVICE:-cpu}"
 [[ "$device" =~ ^(cpu|cuda(:[0-9]+)?)$ ]] || { echo 'Use cpu, cuda or cuda:N.' >&2; exit 2; }
-common=(--source "$source" --out "$out" --device "$device")
+default_jobs=4
+[[ "$device" == cpu ]] || default_jobs=1
+jobs="${TAILCOMPILE_V7_EDIT_CONTEXT_JOBS-$default_jobs}"
+fit_timeout="${TAILCOMPILE_V7_EDIT_CONTEXT_FIT_TIMEOUT-1800}"
+for value in "$jobs" "$fit_timeout"; do
+  [[ "$value" =~ ^[1-9][0-9]*$ ]] || { echo 'Jobs and fit timeout must be positive integers.' >&2; exit 2; }
+done
+[[ "$device" == cpu || "$jobs" == 1 ]] || { echo 'CUDA uses one fit process; choose CPU for parallel fits.' >&2; exit 2; }
+common=(--source "$source" --out "$out" --device "$device" --jobs "$jobs" --fit-timeout "$fit_timeout")
+if [[ -n "${TAILCOMPILE_V7_EDIT_CONTEXT_CACHE_FROM:-}" ]]; then
+  cache_from="$(realpath -m "$TAILCOMPILE_V7_EDIT_CONTEXT_CACHE_FROM")"
+  case "$cache_from/" in "$module/runs/development_012"?*) ;; *) echo 'Cache import requires a v7 012 cohort.' >&2; exit 2 ;; esac
+  case "$cache_from/" in "$out/"*) echo 'Imported cache and output must be disjoint.' >&2; exit 2 ;; esac
+  case "$out/" in "$cache_from/"*) echo 'Imported cache and output must be disjoint.' >&2; exit 2 ;; esac
+  common+=(--cache-from "$cache_from")
+fi
 if [[ "$stage" == plan || "$stage" == check ]]; then
   exec "$python" "$module/edit_context_campaign.py" "$stage" "${common[@]}"
 fi
