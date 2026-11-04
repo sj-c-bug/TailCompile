@@ -80,6 +80,25 @@ if os.environ.get('FAIL_STAGE')==stage: raise SystemExit(19)
         result=self.launch('all','--background');self.assertEqual(result.returncode,2)
         self.assertFalse((self.repo/'logs').exists());self.assertEqual(self.records(),[])
 
+    def test_checkout_alias_resolves_to_canonical_output(self):
+        alias=Path(self.tmp.name)/'project-public';alias.symlink_to(self.repo,target_is_directory=True)
+        self.env['TAILCOMPILE_REPO']=str(alias)
+        self.env['TAILCOMPILE_V7_EDIT_CONTEXT_OUT']=str(alias/self.out.relative_to(self.repo))
+        result=self.launch('check');self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        row,=self.records()
+        args=dict(zip(row['args'][::2],row['args'][1::2]))
+        self.assertEqual(args['--out'],str(self.out))
+        self.assertFalse(self.out.exists())
+
+    def test_output_symlink_under_checkout_alias_is_rejected(self):
+        alias=Path(self.tmp.name)/'project-public';alias.symlink_to(self.repo,target_is_directory=True)
+        self.env['TAILCOMPILE_REPO']=str(alias)
+        self.env['TAILCOMPILE_V7_EDIT_CONTEXT_OUT']=str(alias/self.out.relative_to(self.repo))
+        self.out.symlink_to(self.legacy_out,target_is_directory=True)
+        result=self.launch('all','--background');self.assertEqual(result.returncode,2)
+        self.assertIn('path redirected outside namespace',result.stderr)
+        self.assertFalse((self.repo/'logs').exists());self.assertEqual(self.records(),[])
+
     def test_source_nested_inside_output_rejected(self):
         self.env['TAILCOMPILE_V7_EDIT_CONTEXT_SOURCE']=str(self.out/'borrowed')
         result=self.launch('prepare');self.assertEqual(result.returncode,2)

@@ -67,7 +67,7 @@ git pull --ff-only
 export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
 export TAILCOMPILE_3D_TRAIN_DEVICE=cpu
 export TAILCOMPILE_V7_EDIT_CONTEXT_JOBS=4
-export TAILCOMPILE_V7_EDIT_CONTEXT_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/runs/development_012_edit_context_parallel"
+unset TAILCOMPILE_V7_EDIT_CONTEXT_OUT
 
 script="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_edit_context_campaign.sh"
 bash "$script" plan
@@ -80,6 +80,8 @@ CPU 是默认选择：基础 GNN 表示提取一次后，后续只训练小型�
 已有 CUDA 环境可将 `TAILCOMPILE_3D_TRAIN_DEVICE` 改为 `cuda`，仅将评分头拟合放到 GPU。CUDA 默认并发为 1，显式设置 jobs 大于 1 会在启动前拒绝，避免多个训练进程同时争用同一设备。切换到 CUDA 时将 `TAILCOMPILE_V7_EDIT_CONTEXT_JOBS=1` 或取消此前的 CPU 并发设置。入口继承环境，不执行 conda activate，不启动 VPR。
 
 默认源 `runs/development_011_residual`，默认输出 `runs/development_012_edit_context_parallel`。独立变量为 `TAILCOMPILE_V7_EDIT_CONTEXT_SOURCE/OUT/JOBS/FIT_TIMEOUT`；每个 worker 默认超时 1800 秒，Python 入口同样支持 `--jobs N` 和 `--fit-timeout SECONDS`。阶段为 `plan/check/prepare/train/report`，`all` 依次检查、准备缓存、并行拟合、汇总。支持后台日志与锁；同输出不能并发启动多个阶段。失败后修复原因并按相同冻结参数恢复，改代码或输入需新 cohort。
+
+使用默认输出时取消 `TAILCOMPILE_V7_EDIT_CONTEXT_OUT` 即可，由脚本从仓库的物理路径推导。显式指定输出时，若 `$TAILCOMPILE_REPO` 是同一 checkout 的符号链接别名，脚本会将仓库根换成物理路径，再检查 cohort、scratch 和日志目录是否被重定向。
 
 若旧串行 cohort 已完成特征准备，可在启动前显式指定：
 

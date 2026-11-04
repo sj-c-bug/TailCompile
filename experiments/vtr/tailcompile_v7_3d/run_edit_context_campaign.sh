@@ -32,6 +32,13 @@ python="${TAILCOMPILE_3D_PYTHON:-python3}"
 command -v -- "$python" >/dev/null || { echo 'Active Python unavailable.' >&2; exit 2; }
 source="$(realpath -m "${TAILCOMPILE_V7_EDIT_CONTEXT_SOURCE:-$module/runs/development_011_residual}")"
 out="${TAILCOMPILE_V7_EDIT_CONTEXT_OUT:-$module/runs/development_012_edit_context_parallel}"
+# Accept a configured alias of this checkout while still rejecting symlinks below it.
+configured_repo="${TAILCOMPILE_REPO:-$repo}"
+configured_repo="${configured_repo%/}"
+if [[ "$configured_repo" != "$repo" && "$out" == "$configured_repo/"* &&
+      "$(realpath -m -- "$configured_repo")" == "$repo" ]]; then
+  out="$repo/${out#"$configured_repo/"}"
+fi
 scratch="$repo/vtr_work/tailcompile_v7_3d/edit_context"; logs="$repo/logs"
 for owned in "$out" "$scratch" "$logs"; do
   [[ "$(realpath -m "$owned")" == "$owned" ]] || {
