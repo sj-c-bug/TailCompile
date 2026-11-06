@@ -32,6 +32,8 @@ export VTR_ROOT=/inspire/hdd/project/project-public/changshunjie-253114010247/ch
 
 ## 日常同步方式
 
+014 起，单纯的实验计划 Markdown 保存在本地。实现后的操作说明随代码同步。新 3D 后台日志按实验版本命名，014 使用 logs/v8_014/v8_014_ 前缀。
+
 用户约定（2026-10-28）：本仓库的修改完成并通过必要检查后，Codex直接commit并push到本仓库的 `origin/main`，无需逐次确认。仅暂存本次任务负责的源码、文档和轻量证据，保留无关修改；完成后核验远端commit并报告结果。网络失败或非fast-forward时保留本地提交，说明具体阻塞，不强制推送或覆盖远端历史。
 
 用户更新（2026-11-02）：**新生成的评估报告留在本地，不自动提交到 Git。**源码、测试和运行说明仍按上述约定提交推送；已跟踪的历史报告保留。原始实验 metrics/protocol 的服务器同步与分析报告区分，只有用户要求同步实验数据时才按下方流程提交对应轻量证据。010 本地工程运行目录整体忽略，避免报告、模型和临时结果进入源码提交。
@@ -48,8 +50,8 @@ git pull --ff-only
 ```bash
 cd "$TAILCOMPILE_REPO"
 git add -- experiments/vtr/<版本>/runs/<cohort>
-git diff --cached --stat
 git commit -m "Record <实验名称> results"
+git pull --rebase origin main
 git push origin main
 ```
 

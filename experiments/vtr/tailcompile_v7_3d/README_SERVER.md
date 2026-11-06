@@ -1,5 +1,40 @@
 # v7 3D 服务器实验入口
 
+## 014 真实联合修改比较
+
+在已跑完 013 的服务器 checkout 和 Torch 环境运行。后台主日志放在 **logs/v8_014/**，文件名为 **v8_014_阶段_时间_随机后缀.log**。启动命令显示 LOG、PID、PIDFILE 和 OUT。正式结果写入 runs/development_014_prospective_joint。
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
+export TAILCOMPILE_V8_014_JOBS=16
+script="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_prospective_campaign.sh"
+bash "$script" check
+```
+
+看到 ready 为 true 后启动后台任务。完成标记为 V8_014_GROUP_COMPLETE group=all。
+
+```bash
+bash "$script" all --background
+```
+
+阶段支持 plan、panel、check、qualify、predict、compare、report 和 all。panel 单独核对源码和历史登记。默认 prospective_panel_014.json 登记 OpenCores 的 pipelined_fft_64（32×32×2）和 cordic（24×24×2）。硬块利用率以映射后实测为准。qualify 在 128、192、256 上按需扫描，取每设计四架构共同成功的首个宽度，最多 24 次 Default P&R。任一族资格失败，保留记录并停止主比较。
+
+predict 绑定 010 D 及三个评分器（012 E/G、013 主配置），先冻结各条件的选择和写入后端的初值字节。compare 实测原生 Default、D、弱联合修改、强联合修改，使用 seeds 14101、14102、14103，最多 96 次 P&R。report 按相同的实际输入与 seed 归属 QoR，分别报告 WL、CPD、成功覆盖、CHANZ 及三次跨 seed 的候选复验。
+
+服务器需保留固定 40f8 映射 checkout（VTR_ROOT 或 004 protocol 登记路径）、007 已合格的后端及资格证据，以及 010/012/013 的固定 checkpoint 和拟合记录。默认请求 16 个单线程 VPR，RRG 同时构建上限为 2，按内存和可用核数收紧。可用 TAILCOMPILE_V8_014_JOBS、TAILCOMPILE_V8_014_JOB_MIB、TAILCOMPILE_V8_014_RRG_JOBS、TAILCOMPILE_V8_014_RRG_MIB、TAILCOMPILE_V8_014_TIMEOUT 在启动前调整。
+
+恢复时使用同一输出和冻结参数。原生 VPR 详细日志位于各任务的 vpr.out。取证后回收冗余的 .net、.net.post_routing、.route 和 flat placement 跟踪文件，主比较依赖的 RRG 与冻结初值需保留。运行完成后可同步原始证据，汇总评估报告按忽略规则留在服务器。
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git add -- experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint
+git commit -m "Record 014 prospective joint placement metrics"
+git pull --rebase origin main
+git push origin main
+```
+
 **013 入口**见[评分器泛化对照说明](GENERALIZATION_EXECUTION_2026-11-06.md)，执行 `run_generalization_campaign.sh all --background`。保留服务器上已签名的 012 缓存和原始来源，输出进入独立 `development_013_generalization`。140 个小评分头拟合默认请求 16 个 CPU 进程，评估报告留在本地／服务器。
 
 **当前012：**按[局部表示离线运行说明](EDIT_CONTEXT_EXECUTION_2026-11-04.md)执行`run_edit_context_campaign.sh all --background`。CPU默认最多4个独立拟合进程，使用新输出`development_012_edit_context_parallel`；`TAILCOMPILE_V7_EDIT_CONTEXT_JOBS`控制请求并发，CUDA保持单进程。服务器需保留原011动作／feedback.json、008图和010 D模型；Git轻量结果不能替代这些输入。特征缓存只准备一次或校验后只读复用，完成G/E等预算拟合和按族／架构留出，不运行VPR。
