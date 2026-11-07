@@ -38,6 +38,8 @@ export VTR_ROOT=/inspire/hdd/project/project-public/changshunjie-253114010247/ch
 
 用户更新（2026-11-02）：**新生成的评估报告留在本地，不自动提交到 Git。**源码、测试和运行说明仍按上述约定提交推送；已跟踪的历史报告保留。原始实验 metrics/protocol 的服务器同步与分析报告区分，只有用户要求同步实验数据时才按下方流程提交对应轻量证据。010 本地工程运行目录整体忽略，避免报告、模型和临时结果进入源码提交。
 
+用户更新（2026-11-07）：提供服务器结果同步命令时，只列需要的 add、commit、push；不附带 git diff、git log、git pull --rebase，也不使用 && 连接命令。遇到远端分叉时，再根据实际状态单独处理，不在常规结果同步命令中预先加入 rebase。
+
 代码更新通过 TailCompile Git 同步，不需要传源码压缩包：
 
 ```bash
@@ -51,7 +53,6 @@ git pull --ff-only
 cd "$TAILCOMPILE_REPO"
 git add -- experiments/vtr/<版本>/runs/<cohort>
 git commit -m "Record <实验名称> results"
-git pull --rebase origin main
 git push origin main
 ```
 
