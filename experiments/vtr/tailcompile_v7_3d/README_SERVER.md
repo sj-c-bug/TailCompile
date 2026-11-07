@@ -1,5 +1,44 @@
 # v7 3D 服务器实验入口
 
+## 015 跨设计族的弱修改归因
+
+本入口已实现，不需要训练新网络或重编译 VTR。它复用冻结 D、现有合格网表/AP 快照和真实 RRG，检验改层、XY 调整以及普通扰动的贡献。代码与 2D 和 007–014 实现隔离，后台日志使用 **logs/v8_015/v8_015_** 前缀。
+
+输入在 attribution_panel_015.json 中冻结：SPMV、MCML、blob_merge、diffeq1、pipelined_fft_64、CORDIC，共六个设计族；SPMV/MCML 是硬资源重负载组。OR1200 没有通过输入资格，SHA 缺少当前后端四架构的成功消费者证据，预先排除。名单依据已有输入资格和资源覆盖确定，不能看完015结果再删除不利电路。
+
+| 方法 | 输入行为 |
+| --- | --- |
+| Default | 同一异构兼容 VPR，冷初始化 |
+| D | 冻结010 GNN＋容量解码的初值 |
+| L | 从同一个弱联合候选仅保留改层，保持D的XY |
+| Y | 从同一个弱联合候选仅保留XY，保持D的层和区域 |
+| J | 原011生成规则的弱联合修改，坐标与动作不改写 |
+| R1、R2 | 两个固定随机种子生成的等预算联合修改 |
+
+L/Y严格拆分同一个J，不重新选择节点。无法保持约束的精确拆分会在P&R前报错。随机组匹配实际修改节点数、改层/XY交集、资源需求、原层与自由坐标轴，以及normalized XY逐节点L2位移长度；双层中换层方向唯一，随机的是对象及XY方向。匹配不足时保留合法候选并标记 matched_control=false，只报告覆盖，不把它当作等预算对照。
+
+六族 × 四架构 × 三个新seeds（15101/15102/15103）× 七组，最多 **504次P&R**。此前“新增96次”只适用于两个设计的补充实验；扩大设计族并采用新seeds后需要新的完整配对矩阵。旧结果不冒充新seed结果，复用的是模型、输入和RRG。参考宽度按已合格输入冻结：SPMV128、MCML224、blob_merge128、diffeq1 160、FFT128、CORDIC128。本轮没有Wmin扫描。
+
+在运行完014的服务器原checkout、已激活Torch环境中执行。无需在脚本里再activate conda，环境变量只作用于本轮进程。后台全流程会先做只读输入与后端核验，再冻结所有候选，最后派发科学比较。
+
+```bash
+cd "$TAILCOMPILE_REPO"
+git pull --ff-only
+export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
+export TAILCOMPILE_V8_015_JOBS=16
+bash "$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_attribution_campaign.sh" all --background
+```
+
+启动时打印LOG、PID、PIDFILE和OUT。输出默认 runs/development_015_attribution，完成标记为 **V8_015_GROUP_COMPLETE group=all**。阶段支持 plan、check、prepare、predict、compare、report、all；plan只读轻证据，不依赖Torch，check会核对较大的服务器payload。可用 TAILCOMPILE_V8_015_OUT 设置新的 development_015_ 输出，不得改用旧版本目录。
+
+默认最多16个独立单线程任务，按物理核、CPU quota和每任务8192MiB预算收紧；垂直图解析最多2个同时执行。可在首轮启动前设置 TAILCOMPILE_V8_015_JOB_MIB、TAILCOMPILE_V8_015_RRG_JOBS、TAILCOMPILE_V8_015_TIMEOUT。预测阶段运行冻结模型前向，CPU用于保持原D动作一致；没有可训练阶段，不需要设置TRAIN_DEVICE。所有候选先生成再测量；不根据015结果选择候选、检查点或参数。恢复使用原命令和同一冻结参数，已有完成任务只读复用，科学失败也保留。
+
+必要服务器文件为007的资格证据和旧输入/RRG、010的D checkpoint、012登记的base_checkpoint及014输入；check缺文件时会打印具体路径。历史RRG producer可能早于当前backend，入口用当前后端的真实成功消费记录核对对应架构、BLIF、RRG和宽度，不伪造旧producer哈希。
+
+attribution_report.json 分别汇总WL、CPD、成功率与CHANZ使用量，接受线长/时延取舍，不要求每case或两指标同时改善。四组D/L/Y/J使用共同成功seeds配对，报告交互贡献、逐设计族、训练暴露分组、去掉任一族后的结果及族级bootstrap区间；随机组只在实际匹配的条件比较。六族已被开发流程使用，因此这是跨族机制验证，不是最终盲测。GP/APPack/最终层与XY保留记录来自真实后端快照，不能单独当作QoR收益。
+
+每次成功取证后清理派生 .net、.net.post_routing、.route 和布局跟踪文件，保留日志、指标、输入初值和清理收据。原输入、共享RRG、checkpoint只读。汇总评估报告忽略入Git；需要同步时只提交本轮轻量原始证据。
+
 ## 014 真实联合修改比较
 
 在已跑完 013 的服务器 checkout 和 Torch 环境运行。后台主日志放在 **logs/v8_014/**，文件名为 **v8_014_阶段_时间_随机后缀.log**。启动命令显示 LOG、PID、PIDFILE 和 OUT。正式结果写入 runs/development_014_prospective_joint。
