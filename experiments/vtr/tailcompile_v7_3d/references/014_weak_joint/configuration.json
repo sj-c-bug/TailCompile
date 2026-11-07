@@ -1,0 +1,2472 @@
+{
+  "schema": "tailcompile-historical-configuration-1",
+  "reference_id": "014_fixed_weak_joint",
+  "description": "Complete original favorable-WL development configuration; includes every architecture and all three measurement seeds.",
+  "source_cohort": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint",
+  "implementation_commit": "d4638e4a6857efff47aa937df6583d83465749f0",
+  "results_commit": "cf0863dabf3994d3b8d0e1c1ecce223fb00ae859",
+  "method": "j_s1",
+  "method_definition": "Frozen D plus deterministic weak joint layer/XY edit; always use weak candidate, no learned scorer selection.",
+  "designs": [
+    {
+      "design": "pipelined_fft_64",
+      "family": "pipelined_fft",
+      "aliases": [
+        "pipelined_fft_64",
+        "usfft64_2b"
+      ],
+      "lineage": "OpenCores pipelined_fft_64, Unicore Systems, top USFFT64_2B. Fixed VTR arithmetic/open_cores processed snapshot. Complex FFT datapath and storage.",
+      "source_relative_to_vtr": "vtr_flow/benchmarks/arithmetic/open_cores/verilog/processed_files/output/pipelined_fft_64.v",
+      "source_sha256": "6dd7bf16b85e473fe2f9d760b3398840acb04e13eaa26e781312942fb5668d28",
+      "grid": [
+        32,
+        32,
+        2
+      ],
+      "apblock_count": 7190,
+      "mapped_blif": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+      "mapped_blif_sha256": "c55b428a5e106d226de3d9d9d263d67e338fd49750b3d0e5afb5223a8461d861",
+      "structure_prefix": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/structure",
+      "snapshot_sha256": {
+        ".blocks.tsv": "a5a372c2e12d82d176d252c851a38044f49745b48c7a3c34ff6088c6431550a4",
+        ".nets.tsv": "b5aa05346aca9541372a36b5eb2aecdb0a05903e6e7d6d45af6bfe046933815d",
+        ".meta.tsv": "f6b0834f4cf9fad449f86a8daf233ea1cb3007ea9a7609e61839e3c8918c452b"
+      },
+      "hard_ap_counts": {
+        "memory": 6,
+        "dsp_top": 4
+      },
+      "resource_upper_utilization": [
+        0.15275641025641026,
+        0.07458333333333333,
+        0.05,
+        0.03333333333333333,
+        0.0453125
+      ]
+    },
+    {
+      "design": "cordic",
+      "family": "cordic",
+      "aliases": [
+        "verilog_cordic_core"
+      ],
+      "lineage": "OpenCores verilog_cordic_core, Volder iterative trigonometric core. Fixed VTR arithmetic/open_cores processed snapshot. Shift/add datapath distinct from the FFT source.",
+      "source_relative_to_vtr": "vtr_flow/benchmarks/arithmetic/open_cores/verilog/processed_files/output/cordic.v",
+      "source_sha256": "4955b786ca8b6ff917abd009d82f4c262e5bc886ce47fff33800475cf8b0cb76",
+      "grid": [
+        24,
+        24,
+        2
+      ],
+      "apblock_count": 510,
+      "mapped_blif": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+      "mapped_blif_sha256": "08cec173d8b49c2d0d29e998ce9408a0ffd4074ebbcd1ccb7c0047fd2024a580",
+      "structure_prefix": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/structure",
+      "snapshot_sha256": {
+        ".blocks.tsv": "09a503cfc86eca98b58c46fd3b3cc2b6bfbef3a68f7db7b69f705014c158463d",
+        ".nets.tsv": "f4e07fa09971ed59da0019fc60b09d006ad1e3eb813eaa2eb414393088fddf58",
+        ".meta.tsv": "18f2dffc8450417803683d849eb52f65eaf7d5ff5c2f08d438e25a6a40f09b5f"
+      },
+      "hard_ap_counts": {
+        "memory": 0,
+        "dsp_top": 0
+      },
+      "resource_upper_utilization": [
+        0.022032828282828282,
+        0.0035353535353535356,
+        0.0,
+        0.0,
+        0.07457386363636363
+      ]
+    }
+  ],
+  "architectures": {
+    "H0": "balanced per-layer hard resources",
+    "H1": "unbalanced per-layer hard resources",
+    "Z0": "spread odd-coordinate vertical locations",
+    "Z1": "concentrated center patch with matched total vertical supply",
+    "combinations": [
+      "H0Z0",
+      "H0Z1",
+      "H1Z0",
+      "H1Z1"
+    ],
+    "source_relative_to_vtr": "vtr_flow/arch/multi_die/hecate/3d/hecate_3d_sb_10um_bidir_fanin_16_fanout_16_with_esd_7nm.xml",
+    "source_sha256": "1e9d59fb5d6d3a39b1f95e0eee7b0d528e67d3c763cd6e1c99e649c63da4ce54",
+    "tile_size": 4,
+    "hard_columns": 4,
+    "z_resources_per_selected_location": 6
+  },
+  "seeds": {
+    "measurement": [
+      14101,
+      14102,
+      14103
+    ],
+    "input_qualification": 14001,
+    "deterministic_edit_generator": 11301,
+    "new_network_training_in_014": false
+  },
+  "width": {
+    "measured": 128,
+    "qualification_grid": [
+      128,
+      192,
+      256
+    ],
+    "reference_widths": {
+      "pipelined_fft_64": 128,
+      "cordic": 128
+    },
+    "actual_qualification_pnr_count": 8,
+    "minimum_routable_width_measured": false
+  },
+  "model": {
+    "checkpoint": "experiments/vtr/tailcompile_v7_3d/runs/development_010_structured/models/decoder_control/epoch_0000.pt",
+    "sha256": "13b504e333de66ce00607879d753fca25ffbee8b397da59800942becba12f185",
+    "weights_origin": "Previously trained009X weights plus010 strict capacity decoder; epoch_0000 records decoder migration, not an untrained random network.",
+    "inference_device": "cpu",
+    "score_noise_std": 0.0,
+    "training_performed": false,
+    "learned_scorer_used": false
+  },
+  "weak_generation": {
+    "arm": "J",
+    "candidate_id": "j_s1",
+    "strengths": [
+      0.15,
+      0.35
+    ],
+    "selected_strength": 0.15,
+    "max_moves": 256,
+    "fraction": 0.02,
+    "seed": 11301,
+    "full_strength_list_required": true,
+    "configured_limit": "min(256, ceil(APBlock_count * 0.02))",
+    "weak_budget": "ceil(configured_limit * 0.15 / 0.35), if configured_limit > 0",
+    "xy_update": "0.15 toward the weighted neighbor centroid clipped to the target leaf; per-axis displacement bounded by 0.15 times leaf span",
+    "tail_weight": 0.0,
+    "risk_diagnostics_computed": false,
+    "convergence_loop": false,
+    "frozen_code_sha256": {
+      "structured_model.py": "e5eb8986e4a812238a40bd8482c2cab53512732c4522ee986d0f9ffdde038346",
+      "structured_decoder.py": "3e4abd1132ff5a56d6c6439635f6c516a08fa611963a1d4506d56f33ec64fbca",
+      "residual_actions.py": "f811a0e81d4c06ba99f1fc3adc7d37ae349e0ccfddc4845e14f955b6960a555d",
+      "residual_model.py": "a52f12f13bf4346d7681ab64eb7a5c971f4d2a2555febbafb10c9ce407cabadf",
+      "train_residual.py": "4dd39e52c21aaaea4f34c9f60dbcc1670ee2e0bb8488a236467a4b4b59ee4842",
+      "prospective_native.py": "e0cd746bf14bba89100c470ce15545700bf5f82711ba121dad8cdc162ad295dd"
+    }
+  },
+  "backend": {
+    "vtr_commit": "40f8d19708b0b60e2aa04452deb1cfed68d96b0b",
+    "binary_sha256": "34cd4e3e97c83d5c75db988f7a3944acd0933f60aac6ac39a2babab8357f644e",
+    "backend_manifest_sha256": "af26b9dbcc6804d339261f5869f1ed4e83453a4c094a1bd7b7a614d1010e90bc",
+    "qualification_sha256": "5f094413e2c377ddbfb317293d7ea57825f4662e2ce2e8dbafc6ebe471b89004",
+    "patch_scope": "Shared layer-heterogeneity v2 correctness fixes, XYZ warm-start and observation hooks; layer prior disabled.",
+    "analytical_place": true,
+    "full_legalizer": "appack",
+    "detailed_placer": "annealer",
+    "flat_routing": "off",
+    "device": "pilot",
+    "num_workers": 1,
+    "TC_GP_LAYER_PRIOR": "0",
+    "TC_GP_EXPORT": "post_gp",
+    "pipeline": "AP XYZ initialization -> native GP -> APPack -> detailed annealer -> route -> analysis"
+  },
+  "runtime": {
+    "python": "3.10.12 | packaged by conda-forge | (main, Jun 23 2023, 22:40:32) [GCC 12.3.0]",
+    "torch": "2.11.0+cu128",
+    "jobs": 16,
+    "thread_environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "NUMEXPR_NUM_THREADS": "1"
+    },
+    "per_job_mib": 8192,
+    "rrg_jobs": 2,
+    "rrg_mib": 8192,
+    "timeout_seconds": 3600
+  },
+  "matrix": {
+    "designs": 2,
+    "architectures": 4,
+    "measurement_seeds": 3,
+    "weak_trials": 24,
+    "default_and_D_and_weak_paired_trials": 72,
+    "original_all_four_method_trials": 96,
+    "all_weak_trials_included": true
+  },
+  "conditions": [
+    {
+      "id": "cordic/H0Z0/w128",
+      "design": "cordic",
+      "family": "cordic",
+      "architecture": "H0Z0",
+      "channel_width": 128,
+      "device_signature": "ed5e79efd2110a24de817534533392a9c442631e301dc8fc8c21229759d5e09b",
+      "architecture_xml": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H0Z0/arch.xml",
+      "architecture_sha256": "6b4703e2e98aa7ba41767171f29245fd763dc6d26ca0574a1208c4193129d8f4",
+      "rr_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/d2e034516437515b4c80/rr_graph.xml",
+      "rr_graph_sha256": "095d8aadc5a647242c55c0de2c40875e64ed035b57cae7aceb8a4256d2789faa",
+      "device_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/d2e034516437515b4c80/device_graph.json",
+      "device_graph_sha256": "98bd5ad08bf27690d6b7a226870631c543e42c32a33c99e6e0d8f0dd252ad747",
+      "rr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/d2e034516437515b4c80/manifest.json",
+      "rr_manifest_sha256": "d4896de1d5c907df9e03e09a5f06e3c128b958c03b1717b449d54808deb26a99",
+      "actual_rrg_audit": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/calibration/cordic/w128/actual_audit.json",
+      "actual_rrg_audit_sha256": "79df516d71ba48417558b50db57638cb65f8d7651e23eed335bf07519e10ebd7",
+      "total_resource_capacity": {
+        "clb": 792,
+        "memory": 88,
+        "dsp_top": 88,
+        "io": 1408
+      },
+      "layer_resource_capacity": [
+        {
+          "clb": 396,
+          "memory": 44,
+          "dsp_top": 44,
+          "io": 704
+        },
+        {
+          "clb": 396,
+          "memory": 44,
+          "dsp_top": 44,
+          "io": 704
+        }
+      ],
+      "z_capacity_by_class": {
+        "BI_DIR|z_segment": 726.0
+      },
+      "z_location_count": 121,
+      "base": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z0/w128/payload/D/init.ap.tsv",
+        "ap_init_sha256": "53c1e6a084c3973f0ff0dbfa01cc67f14747108af65a2fdc49f3e79ffe9bf8b4",
+        "action_sha256": "bf4efad1f60f56eb0c1672146dfac711007f4ee6d39d79c96f99fa9b8b506212"
+      },
+      "weak": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z0/w128/payload/j_s1/init.ap.tsv",
+        "ap_init_sha256": "8880c0c1211dd84b98131763ae2c05d03b3749ea386d1a0a3e6f22d9f087ba8e",
+        "action_sha256": "dcf991c0cbddde726a281f4d57897c308f468527d74bfd31d9f567cb244e3fb3",
+        "residual_edits": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z0/w128/payload/j_s1/residual_edits.json",
+        "residual_edits_sha256": "9fb1db1425f5bf5325abed45eb553adfd5a223c36ca76e42784778c11d71e10a",
+        "edit_counts": {
+          "changed_nodes": 5,
+          "changed_layers": 5,
+          "changed_xy": 5
+        }
+      }
+    },
+    {
+      "id": "cordic/H0Z1/w128",
+      "design": "cordic",
+      "family": "cordic",
+      "architecture": "H0Z1",
+      "channel_width": 128,
+      "device_signature": "57c004cb08655f586023d77d14dd87ab346901999c32a13ddd61fcf21a25935a",
+      "architecture_xml": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H0Z1/arch.xml",
+      "architecture_sha256": "c7d35c55f83837e89aefba5be447be7a7057377cdecff984cce4ea8a8a9832bc",
+      "rr_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/adb8d703e72279408034/rr_graph.xml",
+      "rr_graph_sha256": "197c13da5ed05c525d5332a3b8926b95f10dd3b9195bc221dd014911b75a023b",
+      "device_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/adb8d703e72279408034/device_graph.json",
+      "device_graph_sha256": "3118d682186656783d21ad92ff02513714dab8c45f401b0801a9413911da02d2",
+      "rr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/adb8d703e72279408034/manifest.json",
+      "rr_manifest_sha256": "8da311525721e5f0a4db8a15e93d493f8eedb8559d4a776c94a20184b112fc84",
+      "actual_rrg_audit": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/calibration/cordic/w128/actual_audit.json",
+      "actual_rrg_audit_sha256": "79df516d71ba48417558b50db57638cb65f8d7651e23eed335bf07519e10ebd7",
+      "total_resource_capacity": {
+        "clb": 792,
+        "memory": 88,
+        "dsp_top": 88,
+        "io": 1408
+      },
+      "layer_resource_capacity": [
+        {
+          "clb": 396,
+          "memory": 44,
+          "dsp_top": 44,
+          "io": 704
+        },
+        {
+          "clb": 396,
+          "memory": 44,
+          "dsp_top": 44,
+          "io": 704
+        }
+      ],
+      "z_capacity_by_class": {
+        "BI_DIR|z_segment": 726.0
+      },
+      "z_location_count": 121,
+      "base": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z1/w128/payload/D/init.ap.tsv",
+        "ap_init_sha256": "aada9a9c945b3f43b51a45bee8ae4a17bc75c3bda1f1ec7ba83842ff16bb3ff2",
+        "action_sha256": "1bafb535ae8bee44526d55995500ab3001d3b48d8a53a4e44525c788139a24a6"
+      },
+      "weak": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z1/w128/payload/j_s1/init.ap.tsv",
+        "ap_init_sha256": "9d1ff6d12f32a518de5542b36c462cb89b328f12a446cc9ead76f96499160849",
+        "action_sha256": "6bacb277fcfbaae0d46ccb59a505a59b8cc6805cf5aba7c04c5de342c0058701",
+        "residual_edits": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z1/w128/payload/j_s1/residual_edits.json",
+        "residual_edits_sha256": "db42462cb4b2078c5cbf9f7b7fe7204520860f4031388acbdf42827c17a416c5",
+        "edit_counts": {
+          "changed_nodes": 5,
+          "changed_layers": 5,
+          "changed_xy": 5
+        }
+      }
+    },
+    {
+      "id": "cordic/H1Z0/w128",
+      "design": "cordic",
+      "family": "cordic",
+      "architecture": "H1Z0",
+      "channel_width": 128,
+      "device_signature": "35b5323cd80d6a90e1674ad06c1a65d9ff88794079f863477eec4ebc5f4d2438",
+      "architecture_xml": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H1Z0/arch.xml",
+      "architecture_sha256": "8f3949ce7014e695477240250f984047f1917c2eee6bc14f472821f271667ead",
+      "rr_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/10c3ca327139ef7120eb/rr_graph.xml",
+      "rr_graph_sha256": "367c0d93478b2816f3be370f0b1216c4252a5a1ec172fbdfc995610c39f7cf02",
+      "device_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/10c3ca327139ef7120eb/device_graph.json",
+      "device_graph_sha256": "cfae1b48e41604c76fe97a6e4947fc04f5ed5c4e4318605cb8580fae19fc5356",
+      "rr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/10c3ca327139ef7120eb/manifest.json",
+      "rr_manifest_sha256": "1805f889c3dbc03933f47a6b0e00272011a85a499459c6b8c8d018bd70dd0e27",
+      "actual_rrg_audit": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/calibration/cordic/w128/actual_audit.json",
+      "actual_rrg_audit_sha256": "79df516d71ba48417558b50db57638cb65f8d7651e23eed335bf07519e10ebd7",
+      "total_resource_capacity": {
+        "clb": 792,
+        "memory": 88,
+        "dsp_top": 88,
+        "io": 1408
+      },
+      "layer_resource_capacity": [
+        {
+          "clb": 396,
+          "memory": 22,
+          "dsp_top": 66,
+          "io": 704
+        },
+        {
+          "clb": 396,
+          "memory": 66,
+          "dsp_top": 22,
+          "io": 704
+        }
+      ],
+      "z_capacity_by_class": {
+        "BI_DIR|z_segment": 726.0
+      },
+      "z_location_count": 121,
+      "base": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z0/w128/payload/D/init.ap.tsv",
+        "ap_init_sha256": "6ee68db64bb5652fa1bb3910a2fc5479a10acceae25d2eb1346871bd62d29ffe",
+        "action_sha256": "f00d298ed8d069b58cdb20303946fc3dc68cfe8c1ac8f47120440d88b1055d84"
+      },
+      "weak": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z0/w128/payload/j_s1/init.ap.tsv",
+        "ap_init_sha256": "f4aba0f6acdc5f239db5cba11cc4e60ff2b09fad5e3eadcc2994f61b6f63b895",
+        "action_sha256": "ec6078e68af4a625d87c4e4a71367562071ef32a0179097c3566491c2985ab3f",
+        "residual_edits": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z0/w128/payload/j_s1/residual_edits.json",
+        "residual_edits_sha256": "3687c9c47884d8cc9586c86910828020a916a39a3a13c2a3b509929239b0fb2a",
+        "edit_counts": {
+          "changed_nodes": 5,
+          "changed_layers": 5,
+          "changed_xy": 5
+        }
+      }
+    },
+    {
+      "id": "cordic/H1Z1/w128",
+      "design": "cordic",
+      "family": "cordic",
+      "architecture": "H1Z1",
+      "channel_width": 128,
+      "device_signature": "d03e9bc861ce08eabeb9851c07bc8d744c893188b7ab7e01173a0e341d8ec796",
+      "architecture_xml": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H1Z1/arch.xml",
+      "architecture_sha256": "c5ea4d518d2e78510416fd6d8ea002169dd043ec6a768acce524d9f0c35028eb",
+      "rr_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/67293c9eb0684a20eeb1/rr_graph.xml",
+      "rr_graph_sha256": "267c851f5d6d52dab2048e7f32029ab2137cad4306967a788297093b037dd4e2",
+      "device_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/67293c9eb0684a20eeb1/device_graph.json",
+      "device_graph_sha256": "c3cf8752c8c9b028bbd1f3083a086c0efe6817df9587bec5bf57eb2c2004d126",
+      "rr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/67293c9eb0684a20eeb1/manifest.json",
+      "rr_manifest_sha256": "7121196a5366010f38b57772166ad9ab88ce58e753255d7a4f71ebe50356b5f2",
+      "actual_rrg_audit": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/calibration/cordic/w128/actual_audit.json",
+      "actual_rrg_audit_sha256": "79df516d71ba48417558b50db57638cb65f8d7651e23eed335bf07519e10ebd7",
+      "total_resource_capacity": {
+        "clb": 792,
+        "memory": 88,
+        "dsp_top": 88,
+        "io": 1408
+      },
+      "layer_resource_capacity": [
+        {
+          "clb": 396,
+          "memory": 22,
+          "dsp_top": 66,
+          "io": 704
+        },
+        {
+          "clb": 396,
+          "memory": 66,
+          "dsp_top": 22,
+          "io": 704
+        }
+      ],
+      "z_capacity_by_class": {
+        "BI_DIR|z_segment": 726.0
+      },
+      "z_location_count": 121,
+      "base": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z1/w128/payload/D/init.ap.tsv",
+        "ap_init_sha256": "8561988f8f07e8be519d6a03854bd15ff96f8e2b0ef69e78e1042552b76eb274",
+        "action_sha256": "a0e8d00fea7e6b764c275276d145f4e1e1d2b5fe94fe2fa6a3a3279b4821d796"
+      },
+      "weak": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z1/w128/payload/j_s1/init.ap.tsv",
+        "ap_init_sha256": "26844ee759d2286bd12ae4324af32dd902384cb0d07c674b0959fc792212c5a3",
+        "action_sha256": "7e6094ec6a2a2bfb98caa663e193e5667bc83f980b1584f73b75eb69becf1396",
+        "residual_edits": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z1/w128/payload/j_s1/residual_edits.json",
+        "residual_edits_sha256": "4f40df4583f7b4857e8a2209c6b8983fb8701561213e70e018c7f3ae241f63bf",
+        "edit_counts": {
+          "changed_nodes": 5,
+          "changed_layers": 5,
+          "changed_xy": 5
+        }
+      }
+    },
+    {
+      "id": "pipelined_fft_64/H0Z0/w128",
+      "design": "pipelined_fft_64",
+      "family": "pipelined_fft",
+      "architecture": "H0Z0",
+      "channel_width": 128,
+      "device_signature": "318532c069a8a510eb6ed33c8db63be5f0d9aa4ba78350244f5ff0dfab9a63b4",
+      "architecture_xml": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H0Z0/arch.xml",
+      "architecture_sha256": "71f44a78917fa2064edee750000bbeea090ad5002aa297065af80906487d7529",
+      "rr_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6edfee7d603aeb4daed0/rr_graph.xml",
+      "rr_graph_sha256": "32266c245de49506dcb8c306a22d507819b90a7dc54817c841eabbaefcf96c25",
+      "device_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6edfee7d603aeb4daed0/device_graph.json",
+      "device_graph_sha256": "4aff2f37ee106ee9ecb9741e85ab9cb16aecb0422e46c94d1c25a918dac05a1e",
+      "rr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6edfee7d603aeb4daed0/manifest.json",
+      "rr_manifest_sha256": "afe63cd182471756573466d4365cc409092bc9188feed9ee940273f48a482ec3",
+      "actual_rrg_audit": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/calibration/pipelined_fft_64/w128/actual_audit.json",
+      "actual_rrg_audit_sha256": "7e0dd70e2ed8f81c3145890e811fa3f713d880d763ff4eb8bf960ebf89a15f23",
+      "total_resource_capacity": {
+        "clb": 1560,
+        "memory": 120,
+        "dsp_top": 120,
+        "io": 1920
+      },
+      "layer_resource_capacity": [
+        {
+          "clb": 780,
+          "memory": 60,
+          "dsp_top": 60,
+          "io": 960
+        },
+        {
+          "clb": 780,
+          "memory": 60,
+          "dsp_top": 60,
+          "io": 960
+        }
+      ],
+      "z_capacity_by_class": {
+        "BI_DIR|z_segment": 1350.0
+      },
+      "z_location_count": 225,
+      "base": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z0/w128/payload/D/init.ap.tsv",
+        "ap_init_sha256": "c6f16c63e0069693d18f8230c56ae8fba6c38a5e19323ea57e8669ecf6058ac6",
+        "action_sha256": "e8840581028d2887fc590af5a12d859487e3b4b53b1d3eecb5de4fa394b146d1"
+      },
+      "weak": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z0/w128/payload/j_s1/init.ap.tsv",
+        "ap_init_sha256": "f1ba2a843748a221a4b2f36303d7274d35588eb14c5c010dc222856ed84eaa98",
+        "action_sha256": "272c813cae2fa9e70d33829d6a05888dbfb9878458cac29363b83477f37fc18f",
+        "residual_edits": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z0/w128/payload/j_s1/residual_edits.json",
+        "residual_edits_sha256": "731c027daaa1436e4dcb9943a17ad81091ef9379eb436007a6da12217d104b9f",
+        "edit_counts": {
+          "changed_nodes": 62,
+          "changed_layers": 62,
+          "changed_xy": 62
+        }
+      }
+    },
+    {
+      "id": "pipelined_fft_64/H0Z1/w128",
+      "design": "pipelined_fft_64",
+      "family": "pipelined_fft",
+      "architecture": "H0Z1",
+      "channel_width": 128,
+      "device_signature": "94c45cb6562862967680b039e975321208f52dd55d9a0a1f4a8354ff450993da",
+      "architecture_xml": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H0Z1/arch.xml",
+      "architecture_sha256": "cef7fad70030b3d522ad9a7d6f442a0cdc6bbae36a7b396e93949fc57d16c211",
+      "rr_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/115bb8c942d30698053f/rr_graph.xml",
+      "rr_graph_sha256": "abcdb589869ddc123fb62b2382bee4ef7941fd73e5673e171b86d39c96cac0d3",
+      "device_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/115bb8c942d30698053f/device_graph.json",
+      "device_graph_sha256": "4fd8237638c0aac28a9c53a62cdb7e28fb4a65554de073d50c92fc09f3ba982e",
+      "rr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/115bb8c942d30698053f/manifest.json",
+      "rr_manifest_sha256": "13b400b4619455f3caf234a351fd4e8939a91cb43cecad0ead8e638199ad0a6f",
+      "actual_rrg_audit": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/calibration/pipelined_fft_64/w128/actual_audit.json",
+      "actual_rrg_audit_sha256": "7e0dd70e2ed8f81c3145890e811fa3f713d880d763ff4eb8bf960ebf89a15f23",
+      "total_resource_capacity": {
+        "clb": 1560,
+        "memory": 120,
+        "dsp_top": 120,
+        "io": 1920
+      },
+      "layer_resource_capacity": [
+        {
+          "clb": 780,
+          "memory": 60,
+          "dsp_top": 60,
+          "io": 960
+        },
+        {
+          "clb": 780,
+          "memory": 60,
+          "dsp_top": 60,
+          "io": 960
+        }
+      ],
+      "z_capacity_by_class": {
+        "BI_DIR|z_segment": 1350.0
+      },
+      "z_location_count": 225,
+      "base": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z1/w128/payload/D/init.ap.tsv",
+        "ap_init_sha256": "2dd1999992664afe5b35c7379c0dc981945ab052be4fb2322e41960052e1d08d",
+        "action_sha256": "115ee132688239d116be378dc0237e57f46ca7c81b9ff6bc99d4f9960244d54f"
+      },
+      "weak": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z1/w128/payload/j_s1/init.ap.tsv",
+        "ap_init_sha256": "4c6f39f1e45fb48e4bcab3783e5260bbd039aeac836df300f32ef98529e8eea9",
+        "action_sha256": "a1fe12ce036d8aa127dcdeab143f93fc37ea36c9a24d9b6ef19ddc03af0f80b7",
+        "residual_edits": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z1/w128/payload/j_s1/residual_edits.json",
+        "residual_edits_sha256": "8b4d173ed1631396eb519cd351eb44d5691a48a2afb14991944b50a41ea3d2b7",
+        "edit_counts": {
+          "changed_nodes": 62,
+          "changed_layers": 62,
+          "changed_xy": 62
+        }
+      }
+    },
+    {
+      "id": "pipelined_fft_64/H1Z0/w128",
+      "design": "pipelined_fft_64",
+      "family": "pipelined_fft",
+      "architecture": "H1Z0",
+      "channel_width": 128,
+      "device_signature": "6440699f7f0cf55d99b9e8d6c348ccdc7b818e628df25dc7a36c3af23562500a",
+      "architecture_xml": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H1Z0/arch.xml",
+      "architecture_sha256": "61cbf9539d0799839e8290d6acdc80c901c8a7badaf5c042b4c6fbc478f35c26",
+      "rr_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6b1e1656321aee8b5933/rr_graph.xml",
+      "rr_graph_sha256": "2664e900d641d28ea537537316bfbc076d99fa04b5d8216b860f09789a5967a7",
+      "device_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6b1e1656321aee8b5933/device_graph.json",
+      "device_graph_sha256": "fd0a7b86e50c4ec3ef19553a5e9dd474478cd0a95b30a412ae23e323788a7f63",
+      "rr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6b1e1656321aee8b5933/manifest.json",
+      "rr_manifest_sha256": "3e20d717ae0578b5bd6511a18a0a862095d803ecfda259931514a0cae931762c",
+      "actual_rrg_audit": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/calibration/pipelined_fft_64/w128/actual_audit.json",
+      "actual_rrg_audit_sha256": "7e0dd70e2ed8f81c3145890e811fa3f713d880d763ff4eb8bf960ebf89a15f23",
+      "total_resource_capacity": {
+        "clb": 1560,
+        "memory": 120,
+        "dsp_top": 120,
+        "io": 1920
+      },
+      "layer_resource_capacity": [
+        {
+          "clb": 780,
+          "memory": 30,
+          "dsp_top": 90,
+          "io": 960
+        },
+        {
+          "clb": 780,
+          "memory": 90,
+          "dsp_top": 30,
+          "io": 960
+        }
+      ],
+      "z_capacity_by_class": {
+        "BI_DIR|z_segment": 1350.0
+      },
+      "z_location_count": 225,
+      "base": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z0/w128/payload/D/init.ap.tsv",
+        "ap_init_sha256": "6389516089963451664c94a3d65f2d4243925720e6a0996c812eca9284172950",
+        "action_sha256": "574cf7b0cfda720c7bbe84a6b44afd8f5ed03092b457ce31d1e59ccaac1df311"
+      },
+      "weak": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z0/w128/payload/j_s1/init.ap.tsv",
+        "ap_init_sha256": "953841f2732fbdde755b186c63324d1436d44049ef448c12992b2d3be7352897",
+        "action_sha256": "6b3b102d9b43a4469ff2e89001a5da5af578792d5503f4a55aac7685a52a1a80",
+        "residual_edits": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z0/w128/payload/j_s1/residual_edits.json",
+        "residual_edits_sha256": "2cc3c8917b207522a5a8097116c031ba9a0674a2e71f9ff77015ca7c6e1740b3",
+        "edit_counts": {
+          "changed_nodes": 62,
+          "changed_layers": 62,
+          "changed_xy": 62
+        }
+      }
+    },
+    {
+      "id": "pipelined_fft_64/H1Z1/w128",
+      "design": "pipelined_fft_64",
+      "family": "pipelined_fft",
+      "architecture": "H1Z1",
+      "channel_width": 128,
+      "device_signature": "d0f3d63afef6d0209e0436090050c447e9972fa95705558431fe31a63eef98c6",
+      "architecture_xml": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H1Z1/arch.xml",
+      "architecture_sha256": "a64eb77e7766440b5deecb35ac5a636910091444564b1f0edb46d5218d3dfc6a",
+      "rr_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/1ca938bf6941a8ce5954/rr_graph.xml",
+      "rr_graph_sha256": "77682e406e2286188f759693f2956efaed60ac9412ad9e66727459efb2777ef7",
+      "device_graph": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/1ca938bf6941a8ce5954/device_graph.json",
+      "device_graph_sha256": "aa93bb818b2550c68b6eea63479ce4b9391f12ea0ca90d643634c4e7e440dd1d",
+      "rr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/1ca938bf6941a8ce5954/manifest.json",
+      "rr_manifest_sha256": "1d83089de3d5bdf815abbe75a02bbe9f2a4e29a58064b8f3b1b93ec6ec4d63c0",
+      "actual_rrg_audit": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/calibration/pipelined_fft_64/w128/actual_audit.json",
+      "actual_rrg_audit_sha256": "7e0dd70e2ed8f81c3145890e811fa3f713d880d763ff4eb8bf960ebf89a15f23",
+      "total_resource_capacity": {
+        "clb": 1560,
+        "memory": 120,
+        "dsp_top": 120,
+        "io": 1920
+      },
+      "layer_resource_capacity": [
+        {
+          "clb": 780,
+          "memory": 30,
+          "dsp_top": 90,
+          "io": 960
+        },
+        {
+          "clb": 780,
+          "memory": 90,
+          "dsp_top": 30,
+          "io": 960
+        }
+      ],
+      "z_capacity_by_class": {
+        "BI_DIR|z_segment": 1350.0
+      },
+      "z_location_count": 225,
+      "base": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z1/w128/payload/D/init.ap.tsv",
+        "ap_init_sha256": "712ff197f9d5300315fff0a37cc9f61158138b07254d5a08d1825947865a602c",
+        "action_sha256": "76d8c0bbad3a39021ec1ea551e18fe5fa42b533019f464f7055d523a64e88e38"
+      },
+      "weak": {
+        "ap_init": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z1/w128/payload/j_s1/init.ap.tsv",
+        "ap_init_sha256": "44a36dc922f879ce89925a61730973fba57d01e32170c1cdbcd5bb6cdb5ccb6f",
+        "action_sha256": "5f93dc455c51deb20904591ca2a82fbeec752f3740e6a858a21dca715431b3f6",
+        "residual_edits": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z1/w128/payload/j_s1/residual_edits.json",
+        "residual_edits_sha256": "c63a5de433d5925e3496f1d34b02de1deacda81095d9e307e4012ce6ae7617f9",
+        "edit_counts": {
+          "changed_nodes": 62,
+          "changed_layers": 62,
+          "changed_xy": 62
+        }
+      }
+    }
+  ],
+  "weak_runs": [
+    {
+      "condition_id": "cordic/H0Z0/w128",
+      "seed": 14101,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14101/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "6aeffffa3dfacf813354950c6f0d9d835179b56b36a7e7a812abd09b1a29f1ae",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H0Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14101",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/d2e034516437515b4c80/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 6059.0,
+          "cpd_ns": 5.24186,
+          "unique_chanz_nodes": 16,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14101/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "b3e9640339c31b4c30c161534a1194f578e74c11a79cce60f4971009a96ba251"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 7138.0,
+          "cpd_ns": 5.16593,
+          "unique_chanz_nodes": 21,
+          "ap_init_sha256": "53c1e6a084c3973f0ff0dbfa01cc67f14747108af65a2fdc49f3e79ffe9bf8b4",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14101/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "2a1ed7c3b3981d874e22cdfaaf4691531e91b06756116c84a57d5f9ced117d56"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 6377.0,
+          "cpd_ns": 5.15276,
+          "unique_chanz_nodes": 24,
+          "ap_init_sha256": "8880c0c1211dd84b98131763ae2c05d03b3749ea386d1a0a3e6f22d9f087ba8e",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14101/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "6aeffffa3dfacf813354950c6f0d9d835179b56b36a7e7a812abd09b1a29f1ae"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H0Z0/w128",
+      "seed": 14102,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14102/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "887e72042ae1a309b56374555d8ec1a07a257157396590c5f05abcc467fd03c8",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H0Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14102",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/d2e034516437515b4c80/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 7005.0,
+          "cpd_ns": 5.33903,
+          "unique_chanz_nodes": 28,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14102/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "6673a91c490770082860f2831b642cf98388f0287ad84dc00265bd58751c3695"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6441.0,
+          "cpd_ns": 5.59579,
+          "unique_chanz_nodes": 24,
+          "ap_init_sha256": "53c1e6a084c3973f0ff0dbfa01cc67f14747108af65a2fdc49f3e79ffe9bf8b4",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14102/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "8c4a21d9321f3c10ffa6660a8a78627438c10f3b76cc0738ddc2e9c6fff67bbf"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 6697.0,
+          "cpd_ns": 5.36228,
+          "unique_chanz_nodes": 24,
+          "ap_init_sha256": "8880c0c1211dd84b98131763ae2c05d03b3749ea386d1a0a3e6f22d9f087ba8e",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14102/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "887e72042ae1a309b56374555d8ec1a07a257157396590c5f05abcc467fd03c8"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H0Z0/w128",
+      "seed": 14103,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14103/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "3d88a9ac36cadccc65841c9cd4f91647bf066e91b6bfffc83f2a54932a2393b3",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H0Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14103",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/d2e034516437515b4c80/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 6258.0,
+          "cpd_ns": 5.14149,
+          "unique_chanz_nodes": 20,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14103/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "89f4b9361616ad73b3a3162bb522431db61c69675c7b5c22bbf775285eaf95c8"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 7024.0,
+          "cpd_ns": 5.22189,
+          "unique_chanz_nodes": 24,
+          "ap_init_sha256": "53c1e6a084c3973f0ff0dbfa01cc67f14747108af65a2fdc49f3e79ffe9bf8b4",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14103/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "d0f51c4b963854d5ed73d5ca612f7131e0607575a0d06ee2af80ad76debaa9b1"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 6252.0,
+          "cpd_ns": 5.15081,
+          "unique_chanz_nodes": 25,
+          "ap_init_sha256": "8880c0c1211dd84b98131763ae2c05d03b3749ea386d1a0a3e6f22d9f087ba8e",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z0/w128/s14103/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "3d88a9ac36cadccc65841c9cd4f91647bf066e91b6bfffc83f2a54932a2393b3"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H0Z1/w128",
+      "seed": 14101,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14101/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "68c082e5ca94e9236dfea8a72b823ba9d4f0f411b9ae69b055b0cb61011fbb31",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H0Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14101",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/adb8d703e72279408034/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 6124.0,
+          "cpd_ns": 5.2031,
+          "unique_chanz_nodes": 12,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14101/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "8b7a46d02f8583adebc531a7b6e8a2979f2cf446e2f8ec83bcb8e9b820d565e4"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6999.0,
+          "cpd_ns": 5.82806,
+          "unique_chanz_nodes": 73,
+          "ap_init_sha256": "aada9a9c945b3f43b51a45bee8ae4a17bc75c3bda1f1ec7ba83842ff16bb3ff2",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14101/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "cce97522596fe5c4a3c14b4fdce4247ab428025bffd27a2eeebb899f12aece2b"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 5711.0,
+          "cpd_ns": 5.44116,
+          "unique_chanz_nodes": 2,
+          "ap_init_sha256": "9d1ff6d12f32a518de5542b36c462cb89b328f12a446cc9ead76f96499160849",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14101/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "68c082e5ca94e9236dfea8a72b823ba9d4f0f411b9ae69b055b0cb61011fbb31"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H0Z1/w128",
+      "seed": 14102,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14102/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "87081ad1d9edba04c1e7ced91030fe980d54a88331985619085b5f173bf51ee5",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H0Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14102",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/adb8d703e72279408034/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 7159.0,
+          "cpd_ns": 5.08755,
+          "unique_chanz_nodes": 68,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14102/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "cd71ed8d055d86e54c0cd21f2a810585bf4d195e2fb7e746b81ac7f544503445"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6019.0,
+          "cpd_ns": 5.37554,
+          "unique_chanz_nodes": 10,
+          "ap_init_sha256": "aada9a9c945b3f43b51a45bee8ae4a17bc75c3bda1f1ec7ba83842ff16bb3ff2",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14102/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "07154889da8784da7eb9f3a682c5a955dec93172daa08dc52bbebcb82d8daa52"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 5273.0,
+          "cpd_ns": 5.15763,
+          "unique_chanz_nodes": 7,
+          "ap_init_sha256": "9d1ff6d12f32a518de5542b36c462cb89b328f12a446cc9ead76f96499160849",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14102/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "87081ad1d9edba04c1e7ced91030fe980d54a88331985619085b5f173bf51ee5"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H0Z1/w128",
+      "seed": 14103,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14103/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "d68d06359453680d77d3e4b7ea2c4b59d0ed0fda914148adaf7a6b9ceb5fcce3",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H0Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14103",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/adb8d703e72279408034/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H0Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 6909.0,
+          "cpd_ns": 4.94365,
+          "unique_chanz_nodes": 53,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14103/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "3ef380c2b0d058c13e002115273eb38224bcd4e14828432fdd298ce9956f8e95"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6879.0,
+          "cpd_ns": 5.32903,
+          "unique_chanz_nodes": 49,
+          "ap_init_sha256": "aada9a9c945b3f43b51a45bee8ae4a17bc75c3bda1f1ec7ba83842ff16bb3ff2",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14103/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "9e689f0c3b2eb0920368c020f85da6459c86d1eff7d114639e4f60b85b4da4c4"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 5823.0,
+          "cpd_ns": 5.46073,
+          "unique_chanz_nodes": 3,
+          "ap_init_sha256": "9d1ff6d12f32a518de5542b36c462cb89b328f12a446cc9ead76f96499160849",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H0Z1/w128/s14103/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "d68d06359453680d77d3e4b7ea2c4b59d0ed0fda914148adaf7a6b9ceb5fcce3"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H1Z0/w128",
+      "seed": 14101,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14101/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "d26d91f8490019a746c7724c86ee29efb311ca052eab4971c96e9f2d82cad327",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H1Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14101",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/10c3ca327139ef7120eb/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 6082.0,
+          "cpd_ns": 5.24045,
+          "unique_chanz_nodes": 30,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14101/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "ca5a479eb91584b22cad9d942bd2daaa2ac7983a890d4ba4ba252b0b0030b87a"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6675.0,
+          "cpd_ns": 5.58342,
+          "unique_chanz_nodes": 24,
+          "ap_init_sha256": "6ee68db64bb5652fa1bb3910a2fc5479a10acceae25d2eb1346871bd62d29ffe",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14101/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "37ee9a25fcb4eaab9a3538d717b8dcef14ccca24b77b19678bc9c2d7aee540ef"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 5659.0,
+          "cpd_ns": 5.30108,
+          "unique_chanz_nodes": 27,
+          "ap_init_sha256": "f4aba0f6acdc5f239db5cba11cc4e60ff2b09fad5e3eadcc2994f61b6f63b895",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14101/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "d26d91f8490019a746c7724c86ee29efb311ca052eab4971c96e9f2d82cad327"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H1Z0/w128",
+      "seed": 14102,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14102/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "2c43d00588e357d4e8875f1d3e2eff3243071e48b73e8ffed10de9fa2d8bce46",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H1Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14102",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/10c3ca327139ef7120eb/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 7005.0,
+          "cpd_ns": 5.33903,
+          "unique_chanz_nodes": 28,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14102/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "9ff1a16ed641b40b16efd4bfbbbd9b8bfe199bb323299f06a2435bbc437b4909"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6540.0,
+          "cpd_ns": 5.50986,
+          "unique_chanz_nodes": 31,
+          "ap_init_sha256": "6ee68db64bb5652fa1bb3910a2fc5479a10acceae25d2eb1346871bd62d29ffe",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14102/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "b71869918ce503bf986b691d6e786d067a877b1198603e92b572b126e4a5dccc"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 5817.0,
+          "cpd_ns": 4.89589,
+          "unique_chanz_nodes": 27,
+          "ap_init_sha256": "f4aba0f6acdc5f239db5cba11cc4e60ff2b09fad5e3eadcc2994f61b6f63b895",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14102/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "2c43d00588e357d4e8875f1d3e2eff3243071e48b73e8ffed10de9fa2d8bce46"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H1Z0/w128",
+      "seed": 14103,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14103/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "d50497bf83ebf1634072553050e973a9f64a1d9e8d23359e89fcaef26644ec83",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H1Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14103",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/10c3ca327139ef7120eb/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 6489.0,
+          "cpd_ns": 5.14149,
+          "unique_chanz_nodes": 13,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14103/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "22a54a81fbc7991ac6255d898d66d428ea36f2cc5f07c73a92e7f0a44179c240"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6220.0,
+          "cpd_ns": 5.48149,
+          "unique_chanz_nodes": 23,
+          "ap_init_sha256": "6ee68db64bb5652fa1bb3910a2fc5479a10acceae25d2eb1346871bd62d29ffe",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14103/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "749702452b38494394b2702ff375f801b00092513db80fe83e368c04e817a3d4"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 5983.0,
+          "cpd_ns": 5.8937,
+          "unique_chanz_nodes": 23,
+          "ap_init_sha256": "f4aba0f6acdc5f239db5cba11cc4e60ff2b09fad5e3eadcc2994f61b6f63b895",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z0/w128/s14103/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "d50497bf83ebf1634072553050e973a9f64a1d9e8d23359e89fcaef26644ec83"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H1Z1/w128",
+      "seed": 14101,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14101/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "d7ebdc877ae5e0f272c71691b54a29da8227f079af7feb5572401186ca4d8b3c",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H1Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14101",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/67293c9eb0684a20eeb1/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 6053.0,
+          "cpd_ns": 5.00556,
+          "unique_chanz_nodes": 12,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14101/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "de0fc0dcacc3e5875f0307e191a54c386c91c7162e4084e9fe0adbec6ef2efaf"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6838.0,
+          "cpd_ns": 5.03925,
+          "unique_chanz_nodes": 41,
+          "ap_init_sha256": "8561988f8f07e8be519d6a03854bd15ff96f8e2b0ef69e78e1042552b76eb274",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14101/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "1326e2189da4b6d57ec771d0001e1fbd8e40a3be25eb5dd673983e18288e8ec5"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 7113.0,
+          "cpd_ns": 5.55764,
+          "unique_chanz_nodes": 17,
+          "ap_init_sha256": "26844ee759d2286bd12ae4324af32dd902384cb0d07c674b0959fc792212c5a3",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14101/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "d7ebdc877ae5e0f272c71691b54a29da8227f079af7feb5572401186ca4d8b3c"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H1Z1/w128",
+      "seed": 14102,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14102/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "e9b7e584723493ef847f3c602d77927481d40c296a14e7022d9d24f9f9fc5a8f",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H1Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14102",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/67293c9eb0684a20eeb1/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 7159.0,
+          "cpd_ns": 5.08755,
+          "unique_chanz_nodes": 68,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14102/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "76460201bbee8b1b7976ab208db3c2ddaf4afaa22134e1fa7c7d859fd72c49fc"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 5918.0,
+          "cpd_ns": 5.25689,
+          "unique_chanz_nodes": 4,
+          "ap_init_sha256": "8561988f8f07e8be519d6a03854bd15ff96f8e2b0ef69e78e1042552b76eb274",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14102/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "bbf50c4eb82ac39b83268b30a4d6f4041d628a9455aa90e440d9374215bfa078"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 7198.0,
+          "cpd_ns": 5.32843,
+          "unique_chanz_nodes": 54,
+          "ap_init_sha256": "26844ee759d2286bd12ae4324af32dd902384cb0d07c674b0959fc792212c5a3",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14102/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "e9b7e584723493ef847f3c602d77927481d40c296a14e7022d9d24f9f9fc5a8f"
+        }
+      }
+    },
+    {
+      "condition_id": "cordic/H1Z1/w128",
+      "seed": 14103,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14103/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "6292bfd551acdf4482e40f206192ab5f130bba6dcaf12301d333ee89bce6d7c8",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/24x24/H1Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/cordic/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14103",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/67293c9eb0684a20eeb1/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/cordic/H1Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 6988.0,
+          "cpd_ns": 4.93979,
+          "unique_chanz_nodes": 59,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14103/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "36212746ff4c9e58119122c70bbd64cbcdd885e8cb9562a0ebe69a3d1f6b09dc"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 6832.0,
+          "cpd_ns": 5.34938,
+          "unique_chanz_nodes": 29,
+          "ap_init_sha256": "8561988f8f07e8be519d6a03854bd15ff96f8e2b0ef69e78e1042552b76eb274",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14103/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "a199168d4d017485b144e68212ecb01970e512550745e97308e22a7114217a77"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 7009.0,
+          "cpd_ns": 5.56843,
+          "unique_chanz_nodes": 36,
+          "ap_init_sha256": "26844ee759d2286bd12ae4324af32dd902384cb0d07c674b0959fc792212c5a3",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/cordic/H1Z1/w128/s14103/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "6292bfd551acdf4482e40f206192ab5f130bba6dcaf12301d333ee89bce6d7c8"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H0Z0/w128",
+      "seed": 14101,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14101/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "55bbf501dc41fa94ee743c5f7fe89e6e6cfe7736b07db54073072191fa1ff33f",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H0Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14101",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6edfee7d603aeb4daed0/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 86585.0,
+          "cpd_ns": 5.29158,
+          "unique_chanz_nodes": 515,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14101/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "8b893b4ec6353666a0dbb1fbf83e8517e20a9dbe01bba8c094eefd0df39e46c5"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 82228.0,
+          "cpd_ns": 5.14891,
+          "unique_chanz_nodes": 462,
+          "ap_init_sha256": "c6f16c63e0069693d18f8230c56ae8fba6c38a5e19323ea57e8669ecf6058ac6",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14101/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "5fa0db969b3a8aeb5db4bf3fa60bc0ecfa818e5b77ff4fc0dc7f7f2896a22053"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 83798.0,
+          "cpd_ns": 5.28581,
+          "unique_chanz_nodes": 464,
+          "ap_init_sha256": "f1ba2a843748a221a4b2f36303d7274d35588eb14c5c010dc222856ed84eaa98",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14101/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "55bbf501dc41fa94ee743c5f7fe89e6e6cfe7736b07db54073072191fa1ff33f"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H0Z0/w128",
+      "seed": 14102,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14102/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "6e27c839eac992b91cbf3a1dab5e245c6c60ade2d7e2eca1d3db4d737de78a22",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H0Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14102",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6edfee7d603aeb4daed0/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 85111.0,
+          "cpd_ns": 5.34799,
+          "unique_chanz_nodes": 492,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14102/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "4519d0a58edfe8351a83f08281576c3cc1be9f586156ff0a3032283974bc0917"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 86453.0,
+          "cpd_ns": 6.32743,
+          "unique_chanz_nodes": 493,
+          "ap_init_sha256": "c6f16c63e0069693d18f8230c56ae8fba6c38a5e19323ea57e8669ecf6058ac6",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14102/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "6f02faadbff4471d927ad8d5d67f3438047b556a82f8572f3205a9812e494b05"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 85030.0,
+          "cpd_ns": 5.48714,
+          "unique_chanz_nodes": 466,
+          "ap_init_sha256": "f1ba2a843748a221a4b2f36303d7274d35588eb14c5c010dc222856ed84eaa98",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14102/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "6e27c839eac992b91cbf3a1dab5e245c6c60ade2d7e2eca1d3db4d737de78a22"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H0Z0/w128",
+      "seed": 14103,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14103/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "31ffd6741232785ba4c535b9cd6f7b0781aefc2c199063dc2c9e9ae944a798f2",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H0Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14103",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6edfee7d603aeb4daed0/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 86165.0,
+          "cpd_ns": 5.44781,
+          "unique_chanz_nodes": 478,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14103/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "03ab2dd1403805344fae69612e76ff8ebb445edc4ccc043b3309f9fda56fb2c9"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 83530.0,
+          "cpd_ns": 5.11111,
+          "unique_chanz_nodes": 492,
+          "ap_init_sha256": "c6f16c63e0069693d18f8230c56ae8fba6c38a5e19323ea57e8669ecf6058ac6",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14103/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "705671da0470158ce24158bbf0e7def83c2f1d79290e3e18f74cd419bfdbbaaf"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 85910.0,
+          "cpd_ns": 4.981,
+          "unique_chanz_nodes": 481,
+          "ap_init_sha256": "f1ba2a843748a221a4b2f36303d7274d35588eb14c5c010dc222856ed84eaa98",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z0/w128/s14103/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "31ffd6741232785ba4c535b9cd6f7b0781aefc2c199063dc2c9e9ae944a798f2"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H0Z1/w128",
+      "seed": 14101,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14101/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "c26d3619b4ef446cb5ea7d2f23a3f34e4c7097433bc2304eef58d365a6109c8c",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H0Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14101",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/115bb8c942d30698053f/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 84343.0,
+          "cpd_ns": 5.07835,
+          "unique_chanz_nodes": 703,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14101/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "2527386bfd6a7eb13b978b6d19f8d1c8e8b4346061c1dd5c2253a140ddda1d3d"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 86256.0,
+          "cpd_ns": 5.22507,
+          "unique_chanz_nodes": 769,
+          "ap_init_sha256": "2dd1999992664afe5b35c7379c0dc981945ab052be4fb2322e41960052e1d08d",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14101/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "0e8b1ba61a0d9592f76de416ab76a3a306e714b18e83688475132d2107323543"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 83416.0,
+          "cpd_ns": 5.29088,
+          "unique_chanz_nodes": 663,
+          "ap_init_sha256": "4c6f39f1e45fb48e4bcab3783e5260bbd039aeac836df300f32ef98529e8eea9",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14101/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "c26d3619b4ef446cb5ea7d2f23a3f34e4c7097433bc2304eef58d365a6109c8c"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H0Z1/w128",
+      "seed": 14102,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14102/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "fcf774c6768f0ade63d889f67d4bdfead622e591313719855c2ef6941276ff98",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H0Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14102",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/115bb8c942d30698053f/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 84435.0,
+          "cpd_ns": 5.06777,
+          "unique_chanz_nodes": 679,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14102/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "387bf98511dd1c2a71f3f1c87989e53290321c8923bad5a524739f312dfb8aa3"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 84604.0,
+          "cpd_ns": 5.10213,
+          "unique_chanz_nodes": 709,
+          "ap_init_sha256": "2dd1999992664afe5b35c7379c0dc981945ab052be4fb2322e41960052e1d08d",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14102/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "c3c4177cdfed88d66beb2ac7a8bcdc6cb3563a36adddd91d662aeff80aa31d6e"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 84218.0,
+          "cpd_ns": 5.1979,
+          "unique_chanz_nodes": 709,
+          "ap_init_sha256": "4c6f39f1e45fb48e4bcab3783e5260bbd039aeac836df300f32ef98529e8eea9",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14102/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "fcf774c6768f0ade63d889f67d4bdfead622e591313719855c2ef6941276ff98"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H0Z1/w128",
+      "seed": 14103,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14103/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "5c5a992982517ca79f0e6e96f1315d2d81d19e9b5be4a74431fadcb207db8482",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H0Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14103",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/115bb8c942d30698053f/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H0Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 83955.0,
+          "cpd_ns": 5.18901,
+          "unique_chanz_nodes": 653,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14103/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "b086c7bf9e12b453eef2cb470ffa42daeae06616aadcfea46cf04cec6b99ee5e"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 84448.0,
+          "cpd_ns": 5.17298,
+          "unique_chanz_nodes": 720,
+          "ap_init_sha256": "2dd1999992664afe5b35c7379c0dc981945ab052be4fb2322e41960052e1d08d",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14103/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "cbaec53ce62891b2b8caef3cda7e2235805a73d72462b96bc4efeefd4f162ff8"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 82573.0,
+          "cpd_ns": 5.18859,
+          "unique_chanz_nodes": 626,
+          "ap_init_sha256": "4c6f39f1e45fb48e4bcab3783e5260bbd039aeac836df300f32ef98529e8eea9",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H0Z1/w128/s14103/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "5c5a992982517ca79f0e6e96f1315d2d81d19e9b5be4a74431fadcb207db8482"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H1Z0/w128",
+      "seed": 14101,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14101/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "9cc5d1054d8bc53b8185cfb94680461a867d5f5763714f5b2f5331be57807342",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H1Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14101",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6b1e1656321aee8b5933/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 85625.0,
+          "cpd_ns": 4.96586,
+          "unique_chanz_nodes": 458,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14101/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "d17e936384fa817e7fed0a4ee326a93817f83b833ecef043a26c57909cd58829"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 86835.0,
+          "cpd_ns": 5.38625,
+          "unique_chanz_nodes": 506,
+          "ap_init_sha256": "6389516089963451664c94a3d65f2d4243925720e6a0996c812eca9284172950",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14101/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "ae3fef702c35a05367b5c1bd536bbd92e59051e95f29ae1326a823959f6476d8"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 84187.0,
+          "cpd_ns": 4.92072,
+          "unique_chanz_nodes": 496,
+          "ap_init_sha256": "953841f2732fbdde755b186c63324d1436d44049ef448c12992b2d3be7352897",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14101/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "9cc5d1054d8bc53b8185cfb94680461a867d5f5763714f5b2f5331be57807342"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H1Z0/w128",
+      "seed": 14102,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14102/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "c8b3592c445af24f1bfa8d31d543b182988e443c368fed0a4e3bc1c7f8aa8fc1",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H1Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14102",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6b1e1656321aee8b5933/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 85350.0,
+          "cpd_ns": 4.93331,
+          "unique_chanz_nodes": 464,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14102/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "1cae0ae15ff44e422d562c9904984d14995b5217acce49705e55e08db0d60652"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 84155.0,
+          "cpd_ns": 5.36765,
+          "unique_chanz_nodes": 489,
+          "ap_init_sha256": "6389516089963451664c94a3d65f2d4243925720e6a0996c812eca9284172950",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14102/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "429f28d6fc41da85db3abe06caaa2caa799eeef0e13587322d2226d7f99fe3ca"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 84510.0,
+          "cpd_ns": 5.38499,
+          "unique_chanz_nodes": 445,
+          "ap_init_sha256": "953841f2732fbdde755b186c63324d1436d44049ef448c12992b2d3be7352897",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14102/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "c8b3592c445af24f1bfa8d31d543b182988e443c368fed0a4e3bc1c7f8aa8fc1"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H1Z0/w128",
+      "seed": 14103,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14103/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "7592a748dacebd6c11fe09d105dd5f67a5011b657ef0f6da4b206538450fc8da",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H1Z0/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14103",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/6b1e1656321aee8b5933/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z0/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 86235.0,
+          "cpd_ns": 5.43459,
+          "unique_chanz_nodes": 479,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14103/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "e429831530a1de42067e620d2b76ebc6cc4df74d89f2426be58349c2736f62e1"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 85271.0,
+          "cpd_ns": 5.43321,
+          "unique_chanz_nodes": 514,
+          "ap_init_sha256": "6389516089963451664c94a3d65f2d4243925720e6a0996c812eca9284172950",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14103/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "343a05e11df5ef9e928c5cfb0efa2bb1b9d719510eed48ae042c661534273ed9"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 86680.0,
+          "cpd_ns": 4.94478,
+          "unique_chanz_nodes": 486,
+          "ap_init_sha256": "953841f2732fbdde755b186c63324d1436d44049ef448c12992b2d3be7352897",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z0/w128/s14103/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "7592a748dacebd6c11fe09d105dd5f67a5011b657ef0f6da4b206538450fc8da"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H1Z1/w128",
+      "seed": 14101,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14101/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "59a8560a5c3e06c19519491df135cd0f5670ed08b17ff3b0d806a36f04f5975d",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H1Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14101",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/1ca938bf6941a8ce5954/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 84873.0,
+          "cpd_ns": 5.36089,
+          "unique_chanz_nodes": 717,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14101/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "e6a8251e734688c838786c725faff98a45346660d615d8cd1aac067e173d3b30"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 82570.0,
+          "cpd_ns": 5.47325,
+          "unique_chanz_nodes": 695,
+          "ap_init_sha256": "712ff197f9d5300315fff0a37cc9f61158138b07254d5a08d1825947865a602c",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14101/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "b3c6ea698e56af99d05c23583018520a57a766aa5e8a2fdacdd13e244a4ebf41"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 84887.0,
+          "cpd_ns": 5.21585,
+          "unique_chanz_nodes": 670,
+          "ap_init_sha256": "44a36dc922f879ce89925a61730973fba57d01e32170c1cdbcd5bb6cdb5ccb6f",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14101/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "59a8560a5c3e06c19519491df135cd0f5670ed08b17ff3b0d806a36f04f5975d"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H1Z1/w128",
+      "seed": 14102,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14102/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "d0b06dde93cbe605da770775c615779af8b768743d6b40f1867a495380d452ec",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H1Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14102",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/1ca938bf6941a8ce5954/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 84451.0,
+          "cpd_ns": 5.60592,
+          "unique_chanz_nodes": 692,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14102/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "6a3198cf7e05820855b4f0566a5c2126923ff320870b98bd7b80e817198230ec"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 80768.0,
+          "cpd_ns": 5.22513,
+          "unique_chanz_nodes": 602,
+          "ap_init_sha256": "712ff197f9d5300315fff0a37cc9f61158138b07254d5a08d1825947865a602c",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14102/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "e518e9b268e48cb09fffd122be3be830ec1c74f59adbd9d2a6c6a79532c8942b"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 83926.0,
+          "cpd_ns": 5.15856,
+          "unique_chanz_nodes": 633,
+          "ap_init_sha256": "44a36dc922f879ce89925a61730973fba57d01e32170c1cdbcd5bb6cdb5ccb6f",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14102/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "d0b06dde93cbe605da770775c615779af8b768743d6b40f1867a495380d452ec"
+        }
+      }
+    },
+    {
+      "condition_id": "pipelined_fft_64/H1Z1/w128",
+      "seed": 14103,
+      "weak_native_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14103/j_s1/vpr/manifest.json",
+      "weak_native_manifest_sha256": "3196726cfcbb508f6ce09a7959fc51ae6838f2a1a76e7ed538520fff836bf1ab",
+      "exact_archived_command": [
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/.deps/tailcompile_v7_3d_layer/vtr/build_tailcompile_layer/vpr",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/architectures/32x32/H1Z1/arch.xml",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/inputs/pipelined_fft_64/design.blif",
+        "--analytical_place",
+        "--route",
+        "--analysis",
+        "--ap_full_legalizer",
+        "appack",
+        "--ap_detailed_placer",
+        "annealer",
+        "--flat_routing",
+        "off",
+        "--num_workers",
+        "1",
+        "--seed",
+        "14103",
+        "--route_chan_width",
+        "128",
+        "--read_rr_graph",
+        "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/device_cache/1ca938bf6941a8ce5954/rr_graph.xml",
+        "--device",
+        "pilot",
+        "--write_flat_place",
+        "post_route.fplace",
+        "--write_legalized_flat_place",
+        "post_legalizer.fplace",
+        "--flat_place_verbosity",
+        "0"
+      ],
+      "exact_archived_env": {
+        "TC_GP_LAYER_PRIOR": "0",
+        "TC_GP_EXPORT": "post_gp",
+        "TC_GP_INIT": "/inspire/hdd/global_user/changshunjie-253114010247/workspace/DAC2027/TailCompile/experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/pipelined_fft_64/H1Z1/w128/payload/j_s1/init.ap.tsv"
+      },
+      "timeout_seconds": 3600,
+      "paired_measurements": {
+        "Default": {
+          "status": "success",
+          "wirelength": 84030.0,
+          "cpd_ns": 5.40006,
+          "unique_chanz_nodes": 670,
+          "ap_init_sha256": null,
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14103/Default/vpr/manifest.json",
+          "vpr_manifest_sha256": "c9292c9e473fb9fa95a4b7cb0971cc57d1eeea9c815511930743b28a811bc4de"
+        },
+        "D": {
+          "status": "success",
+          "wirelength": 82136.0,
+          "cpd_ns": 5.22513,
+          "unique_chanz_nodes": 604,
+          "ap_init_sha256": "712ff197f9d5300315fff0a37cc9f61158138b07254d5a08d1825947865a602c",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14103/D/vpr/manifest.json",
+          "vpr_manifest_sha256": "23ac8024dc216e431895660470ba0819b9a110fb9ba234bb0f57b792dd43d26d"
+        },
+        "j_s1": {
+          "status": "success",
+          "wirelength": 83369.0,
+          "cpd_ns": 5.33108,
+          "unique_chanz_nodes": 683,
+          "ap_init_sha256": "44a36dc922f879ce89925a61730973fba57d01e32170c1cdbcd5bb6cdb5ccb6f",
+          "vpr_manifest": "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/pipelined_fft_64/H1Z1/w128/s14103/j_s1/vpr/manifest.json",
+          "vpr_manifest_sha256": "3196726cfcbb508f6ce09a7959fc51ae6838f2a1a76e7ed538520fff836bf1ab"
+        }
+      }
+    }
+  ],
+  "observed_results": {
+    "j_s1/D": {
+      "wirelength": {
+        "ratio": 0.9702079495724069,
+        "percent_change": -2.979205042759314,
+        "by_family_percent_change": {
+          "cordic": -6.181926772783719,
+          "pipelined_fft": 0.33284984799979433
+        }
+      },
+      "cpd_ns": {
+        "ratio": 0.9824163002616669,
+        "percent_change": -1.758369973833307,
+        "by_family_percent_change": {
+          "cordic": -0.7060580799212679,
+          "pipelined_fft": -2.7995295224898853
+        }
+      },
+      "unique_chanz_nodes": {
+        "ratio": 0.7673587072998016,
+        "percent_change": -23.26412927001984,
+        "by_family_percent_change": {
+          "cordic": -39.129437343977656,
+          "pipelined_fft": -3.263686094650431
+        }
+      }
+    },
+    "j_s1/Default": {
+      "wirelength": {
+        "ratio": 0.9658723377372622,
+        "percent_change": -3.412766226273778,
+        "by_family_percent_change": {
+          "cordic": -5.912268010989252,
+          "pipelined_fft": -0.8468635512432376
+        }
+      },
+      "cpd_ns": {
+        "ratio": 1.0147560883334297,
+        "percent_change": 1.4756088333429673,
+        "by_family_percent_change": {
+          "cordic": 4.152718666462496,
+          "pipelined_fft": -1.1326893820833517
+        }
+      },
+      "unique_chanz_nodes": {
+        "ratio": 0.7269457611824395,
+        "percent_change": -27.305423881756052,
+        "by_family_percent_change": {
+          "cordic": -45.85997384081399,
+          "pipelined_fft": -2.3919681628277845
+        }
+      }
+    }
+  },
+  "averaging": "Arithmetic seed means within each condition, geometric means across four architectures, equal-weight geometric mean across independent families; negative percent change is improvement.",
+  "artifact_policy": {
+    "server_retained": [
+      "D checkpoint",
+      "mapped BLIF/AP snapshot",
+      "architecture XML",
+      "RRG/device graph",
+      "D and weak init.ap.tsv"
+    ],
+    "server_payload_presence_verified_locally": false,
+    "disposable_outputs_cleaned": [
+      ".net",
+      ".net.post_routing",
+      ".route",
+      "post_gp exports",
+      "post_legalizer.fplace",
+      "post_route.fplace"
+    ],
+    "replay": "Use original retained inputs and exact per-run command/env in a new work directory; preserve archive outputs read-only."
+  },
+  "later_retest": {
+    "cohort": "experiments/vtr/tailcompile_v7_3d/runs/development_015_attribution",
+    "new_seeds": [
+      15101,
+      15102,
+      15103
+    ],
+    "initialization_and_device_signatures_unchanged_for_original_eight_conditions": true,
+    "interpretation": "Historical configuration reference, not a claim that the favorable three-seed WL effect is stable on new seeds."
+  },
+  "evidence": {
+    "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/prospective_protocol.json": "273962a41c4011cac915b6be56dafe9c634567d34a59a7b7320262d6e2a4e6ab",
+    "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/protocol.json": "d259b373220880d23bce7ab54210be5b9279587b2648dbcbaea354ec888224b6",
+    "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/qualified_panel.json": "bea27b455b2ffbc28db19f941f36000802f554540d20a03951a50d859cb21889",
+    "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/input_qualification_report.json": "d627a24a9d9153fb3f38db690a40f60fa0a567eefdde09c70bbc00523017abc3",
+    "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/predictions/prediction_report.json": "95222df97e792cef68eeff5b24d883164b4c5067831a850f2b66259391b032e7",
+    "experiments/vtr/tailcompile_v7_3d/runs/development_014_prospective_joint/comparison/trials_report.json": "a5471f59af7254097ee9b6a1e3b9b578676e56a37dfc3645c2329ee3be09aeec"
+  }
+}
