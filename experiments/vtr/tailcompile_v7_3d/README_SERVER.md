@@ -1,5 +1,18 @@
 # v7 3D 服务器实验入口
 
+## 016 可解释且有限预算的初值优化
+
+当前入口为 `run_explainable_campaign.sh`，完整操作与算法边界见[016运行说明](EXPLAINABLE_EXECUTION.md)。Default/D/旧弱修改J/新优化E共288次P&R，后台日志使用logs/v8_016；候选、移动、轮数与时间均有上限，不能把预算截断称为收敛。
+
+```bash
+export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
+export TAILCOMPILE_V8_016_JOBS=16
+bash "$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_explainable_campaign.sh" check
+bash "$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_explainable_campaign.sh" all --background
+```
+
+这是冻结模型推理与算法比较，没有新训练。原始收据按需同步；评估报告不进入Git。
+
 ## 015 跨设计族的弱修改归因
 
 本入口已实现，不需要训练新网络或重编译 VTR。它复用冻结 D、现有合格网表/AP 快照和真实 RRG，检验改层、XY 调整以及普通扰动的贡献。代码与 2D 和 007–014 实现隔离，后台日志使用 **logs/v8_015/v8_015_** 前缀。
