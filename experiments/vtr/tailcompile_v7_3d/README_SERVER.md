@@ -1,5 +1,18 @@
 # v7 3D 服务器实验入口
 
+## 017 联合时序目标与跨层交换
+
+入口 `run_factorial_campaign.sh`，完整目标、预算与归因见[017运行说明](FACTORIAL_EXECUTION.md)。六组Default/D/W/WS/T/TS，六族、四H/Z架构、三个新seeds，共432次P&R。固定原SB器件和后端，不训练网络。新时序项是实际RRG器件参数支持的互连延迟代理，不当作原生STA或CPD。
+
+```bash
+export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
+export TAILCOMPILE_V8_017_JOBS=16
+bash "$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_factorial_campaign.sh" check
+bash "$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_factorial_campaign.sh" all --background
+```
+
+默认runs/development_017_factorial，后台日志logs/v8_017，完成标记V8_017_GROUP_COMPLETE group=all。共同建模必须完整完成才派发P&R，避免把预算回退D称作已优化；搜索、交换、墙钟时间均有上限。评估报告不入Git。
+
 ## 016 可解释且有限预算的初值优化
 
 当前入口为 `run_explainable_campaign.sh`，完整操作与算法边界见[016运行说明](EXPLAINABLE_EXECUTION.md)。Default/D/旧弱修改J/新优化E共288次P&R，后台日志使用logs/v8_016；候选、移动、轮数与时间均有上限，不能把预算截断称为收敛。
