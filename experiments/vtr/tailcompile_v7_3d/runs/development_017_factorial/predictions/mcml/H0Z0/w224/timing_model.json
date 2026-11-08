@@ -1,0 +1,1810 @@
+{
+  "assumptions": [
+    "Only the pinned two-layer Hecate SB pattern with explicit zero Z pin fc is qualified; CB is unsupported.",
+    "A straight route is approximated by amortized switched wire hops; placement-time portal geometry supplies detours.",
+    "One receiver Cin per hop; no full fanout RC tree, switch loading census, congestion timing, or setup/clock/cell delay.",
+    "Each named RR mux may have several resolved fanin variants: median scalar delay is used, not an architecture Tdel table interpolation.",
+    "Distinct directional SG mux classes retain their distinct delays; a shared name uses the same resolved-variant median in both directions.",
+    "A prefix node sample is not an unbiased chip census; full spans are preferred. Missing layer/axis strata may be explicitly mirrored only for shared global isotropic segment R/C declarations; actual_stratum_sample_count and mirrored_from disclose this.",
+    "CHANZ wire R/C can be taken as zero without sampling only when the architecture explicitly declares both Z metal values zero; resolved nonzero SG switch delay is still mandatory.",
+    "VPR omitted zero-valued switch R/Cin/Cout fields are interpreted as zero; absent resolved Tdel and absent node R/C are errors.",
+    "Exit-driver cost is amortized into horizontal distance; zero-XY cross-layer connections omit that exit-driver floor.",
+    "Depth-based net criticality, when applied by the caller, is a heuristic and is not STA; this artifact never estimates path CPD."
+  ],
+  "extraction_seconds": 25.193347118794918,
+  "formula": {
+    "connection": "terminal + sum(layer horizontal_distance_tiles * horizontal_delay_per_tile_ns[layer]) + directional vertical_delay_ns for a portal crossing",
+    "hop_delay_ns": "1e9 * median(Tdel + R_switch*(C_wire + C_receiver + Cout_switch) + R_wire*(C_wire/2 + C_receiver))",
+    "horizontal": "frequency-weighted mean over L4/L16 and both axes of median(hop_delay_ns / actual inclusive span_tiles)",
+    "raw_units": {
+      "C": "farad",
+      "R": "ohm",
+      "Tdel": "second",
+      "span": "physical FPGA tile; inclusive RR channel coordinates"
+    },
+    "terminal": "one local ipin_cblock delay; source access included by horizontal driver amortization",
+    "vertical": "resolved directional SG entry mux + sampled CHANZ wire, loaded by one L4-driver Cin"
+  },
+  "horizontal_delay_per_tile_ns": [
+    0.0231809373109375,
+    0.0231809373109375
+  ],
+  "layers": [
+    {
+      "layer": 0,
+      "strata": [
+        {
+          "actual_stratum_sample_count": 32,
+          "axis": "CHANX",
+          "full_length_count": 32,
+          "horizontal_delay_per_tile_ns": 0.024692499775,
+          "mirrored_from": null,
+          "nominal_frequency": 280.0,
+          "nominal_length_tiles": 4,
+          "sample_count": 32,
+          "samples": [
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290352
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290353
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290384
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290385
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290392
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290393
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290400
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290401
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290360
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290361
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290408
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290409
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290416
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290417
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290424
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290425
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290368
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290369
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290432
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290433
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290440
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290441
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290448
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290449
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290376
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290377
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290456
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290457
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290464
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290465
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290472
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290473
+            }
+          ],
+          "segment": "L4",
+          "used_full_length_only": true
+        },
+        {
+          "actual_stratum_sample_count": 32,
+          "axis": "CHANX",
+          "full_length_count": 4,
+          "horizontal_delay_per_tile_ns": 0.0126000000625,
+          "mirrored_from": null,
+          "nominal_frequency": 40.0,
+          "nominal_length_tiles": 16,
+          "sample_count": 32,
+          "samples": [
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 2,
+              "node_id": 1290548
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 2,
+              "node_id": 1290549
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 3,
+              "node_id": 1290550
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 3,
+              "node_id": 1290551
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290552
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290553
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 5,
+              "node_id": 1290554
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 5,
+              "node_id": 1290555
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 6,
+              "node_id": 1290556
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 6,
+              "node_id": 1290557
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 7,
+              "node_id": 1290558
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 7,
+              "node_id": 1290559
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 8,
+              "node_id": 1290560
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 8,
+              "node_id": 1290561
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 9,
+              "node_id": 1290562
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 9,
+              "node_id": 1290563
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 10,
+              "node_id": 1290564
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 10,
+              "node_id": 1290565
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 11,
+              "node_id": 1290566
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 11,
+              "node_id": 1290567
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 12,
+              "node_id": 1290568
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 12,
+              "node_id": 1290569
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 13,
+              "node_id": 1290570
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 13,
+              "node_id": 1290571
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 14,
+              "node_id": 1290572
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 14,
+              "node_id": 1290573
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 15,
+              "node_id": 1290574
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 15,
+              "node_id": 1290575
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290674
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290675
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290724
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290725
+            }
+          ],
+          "segment": "L16",
+          "used_full_length_only": true
+        },
+        {
+          "actual_stratum_sample_count": 0,
+          "axis": "CHANY",
+          "full_length_count": 32,
+          "horizontal_delay_per_tile_ns": 0.024692499775,
+          "mirrored_from": [
+            0,
+            "CHANX",
+            "L4"
+          ],
+          "nominal_frequency": 280.0,
+          "nominal_length_tiles": 4,
+          "sample_count": 32,
+          "samples": [
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290352
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290353
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290384
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290385
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290392
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290393
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290400
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290401
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290360
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290361
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290408
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290409
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290416
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290417
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290424
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290425
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290368
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290369
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290432
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290433
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290440
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290441
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290448
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290449
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290376
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290377
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290456
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290457
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290464
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290465
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290472
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290473
+            }
+          ],
+          "segment": "L4",
+          "used_full_length_only": true
+        },
+        {
+          "actual_stratum_sample_count": 0,
+          "axis": "CHANY",
+          "full_length_count": 4,
+          "horizontal_delay_per_tile_ns": 0.0126000000625,
+          "mirrored_from": [
+            0,
+            "CHANX",
+            "L16"
+          ],
+          "nominal_frequency": 40.0,
+          "nominal_length_tiles": 16,
+          "sample_count": 32,
+          "samples": [
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 2,
+              "node_id": 1290548
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 2,
+              "node_id": 1290549
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 3,
+              "node_id": 1290550
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 3,
+              "node_id": 1290551
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290552
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290553
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 5,
+              "node_id": 1290554
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 5,
+              "node_id": 1290555
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 6,
+              "node_id": 1290556
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 6,
+              "node_id": 1290557
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 7,
+              "node_id": 1290558
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 7,
+              "node_id": 1290559
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 8,
+              "node_id": 1290560
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 8,
+              "node_id": 1290561
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 9,
+              "node_id": 1290562
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 9,
+              "node_id": 1290563
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 10,
+              "node_id": 1290564
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 10,
+              "node_id": 1290565
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 11,
+              "node_id": 1290566
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 11,
+              "node_id": 1290567
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 12,
+              "node_id": 1290568
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 12,
+              "node_id": 1290569
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 13,
+              "node_id": 1290570
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 13,
+              "node_id": 1290571
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 14,
+              "node_id": 1290572
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 14,
+              "node_id": 1290573
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 15,
+              "node_id": 1290574
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 15,
+              "node_id": 1290575
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290674
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290675
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290724
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290725
+            }
+          ],
+          "segment": "L16",
+          "used_full_length_only": true
+        }
+      ]
+    },
+    {
+      "layer": 1,
+      "strata": [
+        {
+          "actual_stratum_sample_count": 0,
+          "axis": "CHANX",
+          "full_length_count": 32,
+          "horizontal_delay_per_tile_ns": 0.024692499775,
+          "mirrored_from": [
+            0,
+            "CHANX",
+            "L4"
+          ],
+          "nominal_frequency": 280.0,
+          "nominal_length_tiles": 4,
+          "sample_count": 32,
+          "samples": [
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290352
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290353
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290384
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290385
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290392
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290393
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290400
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290401
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290360
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290361
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290408
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290409
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290416
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290417
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290424
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290425
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290368
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290369
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290432
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290433
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290440
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290441
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290448
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290449
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290376
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290377
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290456
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290457
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290464
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290465
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290472
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290473
+            }
+          ],
+          "segment": "L4",
+          "used_full_length_only": true
+        },
+        {
+          "actual_stratum_sample_count": 0,
+          "axis": "CHANX",
+          "full_length_count": 4,
+          "horizontal_delay_per_tile_ns": 0.0126000000625,
+          "mirrored_from": [
+            0,
+            "CHANX",
+            "L16"
+          ],
+          "nominal_frequency": 40.0,
+          "nominal_length_tiles": 16,
+          "sample_count": 32,
+          "samples": [
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 2,
+              "node_id": 1290548
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 2,
+              "node_id": 1290549
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 3,
+              "node_id": 1290550
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 3,
+              "node_id": 1290551
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290552
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290553
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 5,
+              "node_id": 1290554
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 5,
+              "node_id": 1290555
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 6,
+              "node_id": 1290556
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 6,
+              "node_id": 1290557
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 7,
+              "node_id": 1290558
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 7,
+              "node_id": 1290559
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 8,
+              "node_id": 1290560
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 8,
+              "node_id": 1290561
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 9,
+              "node_id": 1290562
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 9,
+              "node_id": 1290563
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 10,
+              "node_id": 1290564
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 10,
+              "node_id": 1290565
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 11,
+              "node_id": 1290566
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 11,
+              "node_id": 1290567
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 12,
+              "node_id": 1290568
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 12,
+              "node_id": 1290569
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 13,
+              "node_id": 1290570
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 13,
+              "node_id": 1290571
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 14,
+              "node_id": 1290572
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 14,
+              "node_id": 1290573
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 15,
+              "node_id": 1290574
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 15,
+              "node_id": 1290575
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290674
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290675
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290724
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290725
+            }
+          ],
+          "segment": "L16",
+          "used_full_length_only": true
+        },
+        {
+          "actual_stratum_sample_count": 0,
+          "axis": "CHANY",
+          "full_length_count": 32,
+          "horizontal_delay_per_tile_ns": 0.024692499775,
+          "mirrored_from": [
+            0,
+            "CHANX",
+            "L4"
+          ],
+          "nominal_frequency": 280.0,
+          "nominal_length_tiles": 4,
+          "sample_count": 32,
+          "samples": [
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290352
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290353
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290384
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290385
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290392
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290393
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290400
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290401
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290360
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290361
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290408
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290409
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290416
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290417
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290424
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290425
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290368
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290369
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290432
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290433
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290440
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290441
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290448
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290449
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290376
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290377
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290456
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290457
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290464
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290465
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290472
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290473
+            }
+          ],
+          "segment": "L4",
+          "used_full_length_only": true
+        },
+        {
+          "actual_stratum_sample_count": 0,
+          "axis": "CHANY",
+          "full_length_count": 4,
+          "horizontal_delay_per_tile_ns": 0.0126000000625,
+          "mirrored_from": [
+            0,
+            "CHANX",
+            "L16"
+          ],
+          "nominal_frequency": 40.0,
+          "nominal_length_tiles": 16,
+          "sample_count": 32,
+          "samples": [
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 2,
+              "node_id": 1290548
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 2,
+              "node_id": 1290549
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 3,
+              "node_id": 1290550
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 3,
+              "node_id": 1290551
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290552
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 4,
+              "node_id": 1290553
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 5,
+              "node_id": 1290554
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 5,
+              "node_id": 1290555
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 6,
+              "node_id": 1290556
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 6,
+              "node_id": 1290557
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 7,
+              "node_id": 1290558
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 7,
+              "node_id": 1290559
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 8,
+              "node_id": 1290560
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 8,
+              "node_id": 1290561
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 9,
+              "node_id": 1290562
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 9,
+              "node_id": 1290563
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 10,
+              "node_id": 1290564
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 10,
+              "node_id": 1290565
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 11,
+              "node_id": 1290566
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 11,
+              "node_id": 1290567
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 12,
+              "node_id": 1290568
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 12,
+              "node_id": 1290569
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 13,
+              "node_id": 1290570
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 13,
+              "node_id": 1290571
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 14,
+              "node_id": 1290572
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 14,
+              "node_id": 1290573
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 15,
+              "node_id": 1290574
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 15,
+              "node_id": 1290575
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290674
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290675
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290724
+            },
+            {
+              "C_farad": 0.0,
+              "R_ohm": 0.0,
+              "length_tiles": 16,
+              "node_id": 1290725
+            }
+          ],
+          "segment": "L16",
+          "used_full_length_only": true
+        }
+      ]
+    }
+  ],
+  "model_sha256": "cca1ee5760949b1f55d0cb0d7d1d5dd51dbdba035ae9324bf2d9edf30d6bb46a",
+  "pin_access_delay_ns": 0.05636,
+  "provenance": {
+    "architecture_sha256": "724bbd7abe3bcf861b4438ff96da5c7bee5e47912b3b2b0affb2bf83fadef9f9",
+    "device_content_sha256": "28731e5034e3129ad21f527a886d00aaca1466444c3ed4fcc30739e689247c33",
+    "device_file_sha256": "cdb868976ee28cdc01929ad08db95d13bc5349d7d33840ed1a78314443d4604e",
+    "device_manifest_sha256": "5fa4baa7350270ca102d26b92b7400c9fa70ce72e9ab8b7b6a4302b67a3ea56e",
+    "graph_file_pin_verified": true,
+    "implementation_sha256": "812579a5fc6f9606373047db054fe8baedb19eee967e8c69e6d67c260f1ae160",
+    "rr_graph_bytes": 2895202823,
+    "rr_graph_sha256": "7663abb10f578c9b43a5077702b65e4b3efa6adbd9fc247239fc5ba679e57b40",
+    "signature_sha256": "c82eab5c036a094a9235460972a0e78547337069ecc4fb6fe048cf28cf029cc4",
+    "vtr_commit": "40f8d19708b0b60e2aa04452deb1cfed68d96b0b"
+  },
+  "proxy_kind": "SB device-derived routed-connection delay template",
+  "resolved_rr_switches": {
+    "L16_driver": [
+      {
+        "Cin": 0.0,
+        "Cout": 0.0,
+        "R": 0.0,
+        "Tdel": 2.01600001e-10,
+        "id": 3,
+        "name": "L16_driver",
+        "type": "mux"
+      }
+    ],
+    "L4_driver": [
+      {
+        "Cin": 0.0,
+        "Cout": 0.0,
+        "R": 0.0,
+        "Tdel": 9.87699991e-11,
+        "id": 2,
+        "name": "L4_driver",
+        "type": "mux"
+      }
+    ],
+    "bidir_inter_die_switch_10um_with_esd": [
+      {
+        "Cin": 0.0,
+        "Cout": 0.0,
+        "R": 0.0,
+        "Tdel": 1.41999995e-10,
+        "id": 4,
+        "name": "bidir_inter_die_switch_10um_with_esd",
+        "type": "mux"
+      }
+    ],
+    "ipin_cblock": [
+      {
+        "Cin": 0.0,
+        "Cout": 0.0,
+        "R": 0.0,
+        "Tdel": 5.636e-11,
+        "id": 1,
+        "name": "ipin_cblock",
+        "type": "mux"
+      }
+    ]
+  },
+  "sampled_vertical_nodes": [],
+  "sampling": {
+    "decompressed_byte_cap": 536870912,
+    "decompressed_bytes": 219152384,
+    "method": "deterministic bounded RR node prefix, stratified by layer/axis/L4/L16; prefer full spans",
+    "node_cap": 2000000,
+    "nodes_visited": 1290726,
+    "rr_edges_visited": 0,
+    "samples_per_stratum_cap": 32,
+    "stop_reason": "early_prefix_with_explicit_shared_segment_mirroring"
+  },
+  "schema": "tailcompile-017-device-delay-proxy-1",
+  "terminal_delay_ns": 0.05636,
+  "units": "ns",
+  "vertical_delay_ns": [
+    [
+      0.0,
+      0.14199999500000002
+    ],
+    [
+      0.14199999500000002,
+      0.0
+    ]
+  ],
+  "vertical_hop_delay_ns": {
+    "0->1": 0.14199999500000002,
+    "1->0": 0.14199999500000002
+  },
+  "vertical_switch_names": {
+    "0->1": "bidir_inter_die_switch_10um_with_esd",
+    "1->0": "bidir_inter_die_switch_10um_with_esd"
+  },
+  "vertical_wire_rc_source": "explicit zero Rmetal/Cmetal architecture declaration; no CHANZ RC samples"
+}
