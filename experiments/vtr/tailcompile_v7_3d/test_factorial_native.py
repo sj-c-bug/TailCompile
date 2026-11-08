@@ -24,6 +24,134 @@ from factorial_native import run_native, refinement_deadline, refine_arms, METHO
 HERE=Path(__file__).resolve().parent
 
 
+def _prediction_entry_fixture(request_path, output):
+    """Exercise the real CLI worker; replace only graph/model fixture inputs.
+
+    Child isolation is deliberate: prediction_worker sets Torch interop threads
+    once per process, just as the server dispatcher does. Timing validation,
+    bounded four-arm refinement, lowering, receipts and the CLI stay real.
+    """
+    import runpy
+    from test_explainable_refinement import case
+    graph, base = case(6)
+    logical = dict(clusters=[dict(atoms=[f'a{i}']) for i in range(6)])
+    output = Path(output)
+
+    def model_source(path, expected_sha256):
+        if sha(path) != expected_sha256:
+            raise AssertionError('worker did not preserve the model source pin')
+        write(output/'model_loaded.json', dict(path=path, sha256=expected_sha256))
+        return SimpleNamespace(backbone=object())
+
+    def frozen_prediction(backbone, data, *, method, score_noise_std, diagnostics):
+        if data is not graph or method != 'D' or score_noise_std != 0. or diagnostics:
+            raise AssertionError('worker did not request the frozen deterministic D initializer')
+        return deepcopy(base)
+
+    with patch('data.build_logic', return_value=logical), \
+         patch('fast_graph.make_graph', return_value=graph), \
+         patch('layer_features.augment_graph', return_value=graph), \
+         patch('train_residual.from_source', side_effect=model_source), \
+         patch('structured_model.generate', side_effect=frozen_prediction), \
+         patch.object(sys, 'argv', [str(HERE/'factorial_native.py'), 'worker', request_path, str(output)]):
+        runpy.run_path(str(HERE/'factorial_native.py'), run_name='__main__')
+
+
+@unittest.skipUnless(os.name == 'posix' and hasattr(signal, 'setitimer'), 'Linux prediction worker entry')
+class FactorialPredictionEntryTests(unittest.TestCase):
+    def setUp(self):
+        from factorial_timing import build_timing_model
+        from test_factorial_timing import fixture as timing_fixture
+        from test_explainable_refinement import portals
+        owned = tempfile.TemporaryDirectory(dir=HERE/'runs', prefix='development_017_local_entry_')
+        self.addCleanup(owned.cleanup)
+        self.out = Path(owned.name)
+        timing_folder = self.out/'timing_fixture'
+        timing_folder.mkdir()
+        paths = timing_fixture(timing_folder)
+        model = build_timing_model(*paths[:3], device_manifest=paths[3])
+        self.timing_path = self.out/'timing_model.json'
+        write(self.timing_path, model)
+        device = self.out/'device.json'
+        write(device, dict(grid_width=16, grid_height=16, layers=2))
+        summary = self.out/'vertical_summary.json'
+        vertical = portals(((.15, .15), (.85, .85)))
+        vertical['pools'][0]['orientations'].extend(portals(reverse_only=True)['pools'][0]['orientations'])
+        write(summary, vertical)
+        blif = self.out/'design.blif'
+        blif.write_text('.model fixture\n.end\n')
+        checkpoint = self.out/'fixture-model.pt'
+        checkpoint.write_bytes(b'model fixture is replaced only at its loader boundary')
+        self.output = self.out/'predictions/fixture/H0Z0/w128/payload'
+        self.request_path = self.out/'request.json'
+        inputs = [self.timing_path, device, summary, blif, paths[1], checkpoint]
+        self.request = dict(out=str(self.out),
+            condition=dict(id='fixture/H0Z0/w128', design='fixture', family='fixture',
+                fields=dict(blif=str(blif), arch=str(paths[1]), device=str(device)),
+                record=dict(structure_prefix=str(self.out/'fixture_structure'))),
+            inputs={str(path):sha(path) for path in inputs},
+            code={'factorial_native.py':sha(HERE/'factorial_native.py')},
+            model=dict(path=str(checkpoint), sha256=sha(checkpoint)),
+            vertical_summary=str(summary), timing_model=str(self.timing_path),
+            device_signature='fixture-device', refinement_config=dict(max_seconds=1.),
+            refinement_hard_timeout=5)
+
+    def run_worker(self):
+        write(self.request_path, self.request)
+        command = [sys.executable, '-c',
+            'import sys;from test_factorial_native import _prediction_entry_fixture;'
+            '_prediction_entry_fixture(sys.argv[1],sys.argv[2])',
+            str(self.request_path), str(self.output)]
+        return subprocess.run(command, cwd=HERE, capture_output=True, text=True, timeout=30)
+
+    def test_cli_worker_validates_model_refines_all_arms_and_writes_consumable_initializers(self):
+        from factorial_refinement import validate
+        from test_explainable_refinement import case
+        result = self.run_worker()
+        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+        self.assertIn('TAILCOMPILE_V8_017_PREDICTION_COMPLETE', result.stdout)
+        report = read(self.output/'prediction_report.json')
+        self.assertEqual(report['condition_id'], self.request['condition']['id'])
+        self.assertEqual(report['model'], self.request['model'])
+        self.assertEqual(report['timing_model_sha256'], sha(self.timing_path))
+        self.assertEqual(report['timing_provenance'], read(self.timing_path)['provenance'])
+        self.assertEqual(set(report['candidates']), {'D', 'W', 'WS', 'T', 'TS'})
+        self.assertEqual(set(report['phase_seconds']['arms']), {'W', 'WS', 'T', 'TS'})
+        graph, base = case(6)
+        normalizers = []
+        for name, candidate in report['candidates'].items():
+            validate(graph, read(self.output/name/'target.json'), base=base)
+            for key in ('ap_init', 'residual_edits'):
+                self.assertEqual(sha(candidate[key]), candidate[key+'_sha256'])
+            lines = Path(candidate['ap_init']).read_text().splitlines()[1:]
+            self.assertEqual({row.split('\t')[0] for row in lines}, {f'a{i}' for i in range(6)})
+            self.assertTrue(all(len(row.split('\t')) == 5 for row in lines))
+            if name != 'D':
+                receipt = read(candidate['refinement_receipt'])
+                self.assertEqual(sha(candidate['refinement_receipt']), candidate['refinement_receipt_sha256'])
+                self.assertTrue(receipt['setup_complete'])
+                self.assertEqual(receipt['objective_mode'], 'joint' if name in ('T', 'TS') else 'wl')
+                self.assertEqual(receipt['pair_swaps'], name in ('WS', 'TS'))
+                self.assertLessEqual(receipt['final_objective'], receipt['initial_objective']+1e-12)
+                normalizers.append(receipt['normalizers'])
+        self.assertTrue(all(norm == normalizers[0] for norm in normalizers))
+
+    def test_cli_worker_rejects_invalid_timing_before_loading_model_or_emitting_candidates(self):
+        tampered = read(self.timing_path)
+        tampered['horizontal_delay_per_tile_ns'][0] *= 2
+        write(self.timing_path, tampered)
+        # Freeze the corrupt fixture's file SHA so the timing validator itself
+        # must reject its inconsistent internal content digest, not file pins.
+        self.request['inputs'][str(self.timing_path)] = sha(self.timing_path)
+        result = self.run_worker()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('timing model content digest mismatch', result.stderr)
+        self.assertNotIn('NameError', result.stderr)
+        self.assertFalse((self.output/'model_loaded.json').exists())
+        self.assertFalse((self.output/'prediction_report.json').exists())
+        self.assertFalse((self.output/'D/init.ap.tsv').exists())
+
+
 class FactorialNativeTests(unittest.TestCase):
     @unittest.skipUnless(hasattr(signal,'setitimer'),'POSIX hard deadline')
     def test_noncooperative_refinement_is_interrupted_without_a_fallback(self):

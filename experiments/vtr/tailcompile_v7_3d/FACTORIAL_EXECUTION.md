@@ -54,11 +54,14 @@ L0/T0只建立一次，四组共享，不随修改变化。联合组可对同一
 cd "$TAILCOMPILE_REPO"
 export TAILCOMPILE_3D_PYTHON="$(command -v python3)"
 export TAILCOMPILE_V8_017_JOBS=16
+export TAILCOMPILE_V8_017_OUT="$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/runs/development_017_factorial_fix1"
 bash "$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_factorial_campaign.sh" check
 bash "$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_factorial_campaign.sh" all --background
 ```
 
 默认输出 `runs/development_017_factorial/`，日志 `logs/v8_017/`，完成标记 `V8_017_GROUP_COMPLETE group=all`。入口不自动激活conda或执行Git。最多16个独立单线程任务，按CPU和每任务8192MiB预算收紧，RRG相关准备最多2个并行。冻结模型推理使用CPU，未设置训练设备。
+
+上面的命令为预测入口修复后的重跑显式选择 `development_017_factorial_fix1`，避免与已冻结的旧代码协议冲突。保留原目录，不删除或覆盖失败证据；此后若代码或参数再次变化，应另选新的 `development_017_` 目录。完整预测入口的回归测试包含真实时序模型校验、四组修正、五组初值lowering与完成标记，不能只测修正核心函数。
 
 阶段支持plan、check、prepare、predict、compare、report、all；plan只读轻量面板，check核对实际服务器payload和既有后端。原015/016垂直摘要校验来源收据后只读复用，017中建立独立缓存。实际RRG时序摘要每条件建立一次并记录签名，缺少大型输入会指明路径并停止。更改参数使用新的development_017_输出目录；同协议恢复只读复用已完成收据。
 
@@ -74,7 +77,7 @@ bash "$TAILCOMPILE_REPO/experiments/vtr/tailcompile_v7_3d/run_factorial_campaign
 
 ```bash
 cd "$TAILCOMPILE_REPO"
-git add -- experiments/vtr/tailcompile_v7_3d/runs/development_017_factorial
+git add -- experiments/vtr/tailcompile_v7_3d/runs/development_017_factorial_fix1
 git commit -m "Record 017 objective and swap factorial results"
 git push origin main
 ```

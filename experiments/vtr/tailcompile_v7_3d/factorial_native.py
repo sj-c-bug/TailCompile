@@ -12,6 +12,7 @@ from residual_campaign import classify_native_failure, scientific_result
 from layer_observations import collect_layers
 from residual_observations import collect_residual_observations
 from qor_route_metrics import summarize_route
+from factorial_timing import validate_timing_model
 
 HERE = Path(__file__).resolve().parent
 METHODS = ('Default', 'D', 'W', 'WS', 'T', 'TS')
@@ -69,7 +70,6 @@ def device_signature(condition, binary_hash):
 def refine_arms(graph,base,summary,timing_model,config,hard_timeout,condition_id):
     """Prepare once, run the complete factorial, and reject partial setup."""
     from factorial_refinement import refine, prepare_problem
-    from factorial_timing import validate_timing_model
     started=time.perf_counter()
     print('V8_017_COMMON_SETUP_START condition='+condition_id,flush=True)
     with refinement_deadline(hard_timeout):
